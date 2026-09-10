@@ -18,7 +18,8 @@ The relay's delivery switch must also remain enabled. Credentials are never
 exported into scenes or saved in Godot settings. Each HTTP request uses the
 private link's key as a Bearer capability to `/api/overlay`; redirects are disabled.
 History is bounded to 100 relay records and 30 rendered lines. First snapshots
-are skipped after enabling; repeated snapshots don't duplicate messages and
+are skipped after connecting; mode/feature toggles preserve history and only
+change visibility. Connected snapshots still update while hidden; repeated snapshots don't duplicate messages and
 moderated messages disappear. Transient failures clear stale chat and retry;
 revoked links stop polling and request reconnection.
 
@@ -66,3 +67,15 @@ Capabilities stay in memory; restarting the game requires connecting again.
 The component's browser_requested signal belongs to the connection client;
 StreamerChat handles it through OS.shell_open. No embedded platform login form
 or provider password storage is involved.
+
+## History and panel controls
+
+In-game chat and master-mode toggles hide/show the same message buffer. Polling
+continues while hidden; moderation and the relay's bounded/expiring snapshot still
+apply. Disconnecting or switching channels clears history. Scroll inside the chat
+panel to read older messages. Repeated snapshots preserve your reading position;
+new messages follow automatically only when you are already at the bottom.
+
+Drag the bottom-right corner to resize (minimum 240 × 140, bounded by viewport),
+or call `overlay.set_panel_size(Vector2(width, height))`. Alt-drag moves the panel.
+Size and position stay in memory through mode toggles, not application restarts.

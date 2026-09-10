@@ -61,12 +61,8 @@ func disconnect_chat() -> void:
 	status_changed.emit("disconnected", "No channel connected")
 
 func set_active(value: bool) -> void:
-	if _active == value:
-		return
+	# Mode controls visibility, not the connected channel's message history.
 	_active = value
-	_baseline = true
-	_excluded.clear()
-	snapshot_received.emit([])
 
 func _poll() -> void:
 	if _endpoint.is_empty() or _request.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED:
@@ -97,7 +93,7 @@ func accept_snapshot(data: Dictionary) -> void:
 	var present: Dictionary = {}
 	var accepted: Array = []
 	var delivery = data.get("settings", {})
-	var enabled := _active and state == "connected" and delivery is Dictionary and bool(delivery.get("enabled", false))
+	var enabled := state == "connected" and delivery is Dictionary and bool(delivery.get("enabled", false))
 	for row in rows.slice(-100):
 		if not row is Dictionary or not row.get("id") is String:
 			continue

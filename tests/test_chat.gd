@@ -15,8 +15,7 @@ func _run() -> void:
 	demo.controller.set_enabled(true)
 	check(chat.overlay.visible, "Master on shows chat")
 	for provider in ["kick", "twitch", "youtube"]:
-		chat.client.set_active(false)
-		chat.client.set_active(true)
+		chat.client.disconnect_chat()
 		var snapshot := {"provider": provider, "state": "connected", "settings": {"enabled": true}, "messages": [{"id": "old", "author": "old", "text": "history"}]}
 		chat.client.accept_snapshot(snapshot)
 		check(chat.overlay.messages.is_empty(), "No initial history")
@@ -29,13 +28,32 @@ func _run() -> void:
 		chat.client.accept_snapshot(snapshot)
 		check(chat.overlay.messages.is_empty(), "Moderated message removed")
 
-	var record := {"id": "hidden", "author": "hidden", "text": "while off"}
-	demo.controller.set_enabled(false)
-	chat.client.accept_snapshot({"state": "connected", "settings": {"enabled": true}, "messages": [record]})
-	check(chat.overlay.messages.is_empty(), "Disabled mode clears incoming messages")
-	demo.controller.set_enabled(true)
-	chat.client.accept_snapshot({"state": "connected", "settings": {"enabled": true}, "messages": [record]})
-	check(chat.overlay.messages.is_empty(), "Re-enabling excludes off-period history")
+	var record := {"id": "kept", "author": "Viewer", "text": "Keep this message"}
+	var snapshot := {"state": "connected", "settings": {"enabled": true}, "messages": [record]}
+	chat.client.accept_snapshot(snapshot)
+	check(chat.overlay.messages == ["Viewer: Keep this message"], "New message appears")
+	for feature_only in [true, false]:
+		if feature_only:
+			demo.controller.set_feature_enabled(&"chat", false)
+		else:
+			demo.controller.set_enabled(false)
+		check(not chat.overlay.visible, "Mode toggle hides overlay")
+		check(chat.overlay.messages == ["Viewer: Keep this message"], "Hiding preserves history immediately")
+		chat.client.accept_snapshot(snapshot)
+		check(chat.overlay.messages == ["Viewer: Keep this message"], "Hidden polling preserves existing messages")
+		if feature_only:
+			demo.controller.set_feature_enabled(&"chat", true)
+		else:
+			demo.controller.set_enabled(true)
+		check(chat.overlay.visible and chat.overlay.messages == ["Viewer: Keep this message"], "Re-enabling restores messages before next poll")
+	demo.controller.set_feature_enabled(&"chat", false)
+	snapshot.messages.append({"id": "hidden", "author": "New viewer", "text": "While hidden"})
+	chat.client.accept_snapshot(snapshot)
+	check(not chat.overlay.visible and chat.overlay.messages.size() == 2, "Messages continue updating while hidden")
+	snapshot.messages.remove_at(0)
+	chat.client.accept_snapshot(snapshot)
+	demo.controller.set_feature_enabled(&"chat", true)
+	check(chat.overlay.messages == ["New viewer: While hidden"], "Moderation still removes messages while hidden")
 	chat.client.accept_snapshot({"state": "connected", "settings": null, "messages": null})
 	check(chat.overlay.messages.is_empty(), "Malformed snapshot fails closed")
 	chat.overlay.background_opacity = 0.73
@@ -48,6 +66,41 @@ func _run() -> void:
 	check(not chat.overlay.visible and not chat.client._active, "Chat opt-out disables rendering")
 	demo.controller.set_feature_enabled(&"chat", true)
 	check(chat.overlay.visible, "Chat opt-in")
+	# Real RichTextLabel layout: scrolling up survives repeated and new snapshots.
+	var history: Array = []
+	for n in range(25):
+		history.append({"author": "Viewer", "text": "Message %d" % n})
+	chat.overlay.set_panel_size(Vector2(320, 180))
+	chat.overlay.replace_messages(history)
+	await process_frame
+	await process_frame
+	var bar: VScrollBar = chat.overlay._label.get_v_scroll_bar()
+	check(bar.max_value > bar.page, "Long chat exposes scrollable history")
+	bar.value = 50
+	var reading_position := bar.value
+	chat.overlay.replace_messages(history)
+	await process_frame
+	check(is_equal_approx(bar.value, reading_position), "Identical snapshots preserve scroll position")
+	history.append({"author": "Viewer", "text": "New while reading"})
+	chat.overlay.replace_messages(history)
+	await process_frame
+	await process_frame
+	check(is_equal_approx(bar.value, reading_position), "New messages do not pull reader to bottom")
+	bar.value = bar.max_value
+	history.append({"author": "Viewer", "text": "Follow this"})
+	chat.overlay.replace_messages(history)
+	await process_frame
+	await process_frame
+	check(bar.value >= bar.max_value - bar.page - 2, "Readers at bottom follow new messages")
+	chat.overlay.set_panel_size(Vector2(520, 340))
+	check(chat.overlay.size == Vector2(520, 340), "Panel can grow")
+	chat.overlay.set_panel_size(Vector2(280, 160))
+	check(chat.overlay.size == Vector2(280, 160), "Panel can shrink")
+	chat.overlay.set_panel_size(Vector2(1, 1))
+	check(chat.overlay.size == Vector2(240, 140), "Resize respects usable minimum")
+	chat.overlay.set_panel_size(Vector2(10000, 10000))
+	check(chat.overlay.size.x <= chat.overlay.get_viewport_rect().size.x and chat.overlay.size.y <= chat.overlay.get_viewport_rect().size.y, "Panel remains inside viewport")
+	chat.overlay.set_panel_size(Vector2(400, 260))
 	check(not chat.connect_link("http://example.com/overlay#" + "a".repeat(43)), "Reject nonlocal HTTP")
 	check(not chat.connect_link("https://user:pass@example.com/overlay#" + "a".repeat(43)), "Reject credentials in URL")
 	check(chat.connect_link("http://localhost:8789/overlay#" + "a".repeat(43)), "Accept development link")
@@ -55,6 +108,7 @@ func _run() -> void:
 	chat.client.disconnect_chat()
 	check(chat.client._key.is_empty(), "Disconnect drops capability")
 	# Shared settings panel uses the same controller; unavailable features stay off.
+	check(demo.settings_panel.feature_options[&"chat"].text == "In-game chat", "Platform-neutral chat caption")
 	check(not demo.settings_panel.feature_options[&"chat"].disabled, "Chat available in common panel")
 	check(demo.settings_panel.feature_options[&"audio"].disabled, "Audio not falsely advertised")
 	check(demo.settings_panel.feature_options[&"privacy"].disabled, "Privacy not falsely advertised")

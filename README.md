@@ -14,7 +14,8 @@ There is no Electron companion or OBS dependency. No feature branches have been 
 4. Click **Enable chat** in the same panel, then **Back to game**. This activates
    the shared Streamer Mode controller and its CHAT preference. New messages
    appear with usernames; no private-link copy/paste is needed.
-5. Adjust background opacity in the game. Alt + drag moves chat. Closing settings
+5. Adjust background opacity in the game. Scroll inside chat to read earlier messages; Alt + drag moves it. Drag the
+   bottom-right corner to resize it. Closing settings
    preserves Streamer Mode. **Disconnect channel** removes this game's relay
    session. Escape closes settings when open, otherwise toggles Streamer Mode.
 
@@ -24,7 +25,9 @@ fallback is `http://localhost:8788`; start the relay on that port for this demo.
 For Kick, the relay's PUBLIC_URL must still be its public HTTPS tunnel/domain.
 Ordinary streamers only choose a platform and approve it in their browser.
 
-The first snapshot after connection/enabling is discarded to avoid replaying history.
+Toggling Streamer Mode or In-game chat only hides/shows the overlay; it preserves
+message history and continues updating it while hidden.
+The first snapshot after a new connection is discarded to avoid replaying history.
 Only subsequent messages are displayed. Moderation removals update the panel too.
 No sample messages are injected into the game. A real channel and running relay
 are required for live delivery. The browser is for account authorization and relay
@@ -50,7 +53,7 @@ the Godot game includes chat, but switching to another desktop application does
 not put this overlay over that application. Starting a broadcast does not
 automatically authorize a channel; connect it and enable Streamer Mode first.
 
-The addon never reads gameplay input except Alt-drag on the visible chat panel.
+The visible chat panel handles scrolling, Alt-drag movement, and corner resizing.
 Your game owns menu opening, pause behavior, and its existing master controller.
 See [addon API](addons/streamer_mode/chat/README.md) and
 [branch integration notes](docs/TEAM_WORKFLOW.md).
