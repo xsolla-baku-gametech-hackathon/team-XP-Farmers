@@ -11,6 +11,7 @@ if (process.env.NODE_ENV === 'production' && (!process.env.DATA_FILE || !process
 }
 const server = createApp({ publicURL, dataFile: process.env.DATA_FILE, sessionSecret: process.env.SESSION_SECRET,
   kick: { clientId: process.env.KICK_CLIENT_ID, clientSecret: process.env.KICK_CLIENT_SECRET },
+  youtube: { clientId: process.env.YOUTUBE_CLIENT_ID, clientSecret: process.env.YOUTUBE_CLIENT_SECRET },
   twitch: { clientId: process.env.TWITCH_CLIENT_ID, clientSecret: process.env.TWITCH_CLIENT_SECRET },
 });
 server.listen(port, process.env.HOST || '127.0.0.1', () => console.log(`Chat Studio listening on port ${port}.`));

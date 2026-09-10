@@ -4,8 +4,10 @@ import { fileURLToPath } from 'node:url';
 import { random, defaults, settingsPatch, addMessage } from './common.mjs';
 import { createKick, chatMessage } from './providers/kick.mjs';
 import { createTwitch } from './providers/twitch.mjs';
+import { createYouTube } from './providers/youtube.mjs';
 import { createStorage } from './storage.mjs';
 
+const providerNames = { kick: 'Kick', twitch: 'Twitch', youtube: 'YouTube' };
 const IDLE_TTL = 7 * 24 * 3600000;
 const files = { '/': 'index.html', '/overlay': 'overlay.html', '/styles.css': 'styles.css',
   '/studio.mjs': 'studio.mjs', '/overlay.mjs': 'overlay.mjs', '/chat.mjs': 'chat.mjs', '/favicon.svg': 'favicon.svg' };
@@ -16,6 +18,7 @@ export function createApp(config, dependencies = {}) {
   const secure = publicURL.startsWith('https:');
   const providers = dependencies.providers || {
     kick: createKick({ publicURL, ...config.kick }), twitch: createTwitch({ publicURL, ...config.twitch }),
+    youtube: createYouTube({ publicURL, ...config.youtube }),
   };
   const storage = createStorage(config.dataFile, config.sessionSecret);
   const sessions = new Map(), rates = new Map(), deliveries = new Map();
@@ -113,8 +116,8 @@ export function createApp(config, dependencies = {}) {
         let values;
         try { values = JSON.parse(await body(req)); } catch (error) { if (error.status) throw error; return send(res, 400, { error: 'Invalid JSON' }); }
         const provider = providers[values?.provider];
-        if (!Object.hasOwn(providers, values?.provider || '') || !provider) return send(res, 400, { error: 'Choose Kick or Twitch.' });
-        if (!provider.configured) return send(res, 503, { error: `${values.provider === 'kick' ? 'Kick' : 'Twitch'} is not configured. The service owner needs to add app credentials on the server.` });
+        if (!Object.hasOwn(providers, values?.provider || '') || !provider) return send(res, 400, { error: 'Choose Kick, Twitch or YouTube.' });
+        if (!provider.configured) return send(res, 503, { error: `${providerNames[values.provider]} is not configured. The service owner needs to add app credentials on the server.` });
         const ip = req.socket.remoteAddress;
         const rate = rates.get(ip) || { count: 0, until: Date.now() + 60000 };
         rates.set(ip, rate);
@@ -130,7 +133,7 @@ export function createApp(config, dependencies = {}) {
         sessions.set(key, session);
         return send(res, 201, { authorizeURL: provider.authorizeURL(state, verifier) }, { 'Set-Cookie': cookie(key) });
       }
-      const callback = path.match(/^\/oauth\/(kick|twitch)\/callback$/);
+      const callback = path.match(/^\/oauth\/(kick|twitch|youtube)\/callback$/);
       if (req.method === 'GET' && callback) {
         const key = owner(req), session = sessions.get(key);
         if (!session?.oauth || session.provider !== callback[1] || session.oauth.state !== url.searchParams.get('state') || Date.now() - session.created > 600000) return send(res, 400, { error: 'This sign-in expired or belongs to another browser. Connect again from Chat Studio.' });
@@ -154,7 +157,11 @@ export function createApp(config, dependencies = {}) {
           remove(key); persist(); return send(res, 200, { ok: true }, { 'Set-Cookie': cookie('', 0) });
         }
         if (req.method === 'PATCH' && path === '/api/settings') {
-          try { Object.assign(session.settings, settingsPatch(JSON.parse(await body(req)))); }
+          try {
+            const patch = settingsPatch(JSON.parse(await body(req)));
+            if (patch.enabled !== undefined && patch.enabled !== session.settings.enabled) session.messagesAfter = Date.now();
+            Object.assign(session.settings, patch);
+          }
           catch (error) { if (error.status) throw error; return send(res, 400, { error: 'Invalid settings' }); }
           if (!session.settings.enabled) session.messages = [];
           persist(); return send(res, 200, snapshot(session, true));

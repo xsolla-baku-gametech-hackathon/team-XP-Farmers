@@ -1,5 +1,6 @@
 import { defaults, safeSettings, renderChat, request } from './chat.mjs';
 
+const providerNames = { kick: 'Kick', twitch: 'Twitch', youtube: 'YouTube' };
 const $ = id => document.getElementById(id);
 const samples = [{ author: 'azra_gg', color: '#bcf478', text: 'That was so close!' }, { author: 'pixelpilot', color: '#c487ff', text: 'One more round?' }, { author: 'nova', color: '#ffae8c', text: "Let's go!" }];
 let settings = { ...defaults }, provider = 'kick', session = null, available = {}, ready = false, busy = false, dirty = false, saveTimer, generation = 0;
@@ -8,12 +9,12 @@ try { settings = safeSettings(JSON.parse(localStorage.getItem('xp-chat-settings'
 const persistLocal = () => { try { localStorage.setItem('xp-chat-settings', JSON.stringify(settings)); } catch { /* Private browsing */ } };
 function error(message = '') { $('error').textContent = message; $('error').hidden = !message; }
 function paint() {
-  for (const name of ['kick', 'twitch']) {
+  for (const name of Object.keys(providerNames)) {
     $(name).classList.toggle('selected', provider === name);
     $(name).setAttribute('aria-pressed', String(provider === name));
     $(name).disabled = Boolean(session) || busy;
   }
-  $('connect').textContent = busy ? 'Connecting…' : `Connect ${provider === 'kick' ? 'Kick' : 'Twitch'}`;
+  $('connect').textContent = busy ? 'Connecting…' : `Connect ${providerNames[provider]}`;
   $('connect').hidden = Boolean(session); $('connect').disabled = busy || !ready;
   $('disconnect').hidden = !session; $('disconnect').disabled = busy;
   $('connection-status').dataset.state = session?.state || 'disconnected';
@@ -23,7 +24,7 @@ function paint() {
   $('font-size').value = settings.fontSize; $('position').value = settings.position;
   $('mode').setAttribute('aria-checked', String(settings.enabled));
   const connected = session?.state === 'connected';
-  $('preview-label').textContent = !settings.enabled ? 'Streamer Mode off' : session ? (connected ? 'Live chat' : 'Waiting for connection') : 'Sample preview';
+  $('preview-label').textContent = !settings.enabled ? 'Streamer Mode off' : session ? (connected ? 'Live chat' : session.state === 'waiting' ? 'Waiting for live stream' : 'Waiting for connection') : 'Sample preview';
   $('preview-caption').textContent = !settings.enabled ? 'Your overlay is hidden. Turn on Streamer Mode to show new messages.' : session
     ? (connected ? 'Live messages from your channel. Each message includes the sender’s username.' : 'Your overlay stays clear until the channel is connected.')
     : 'Sample messages only. Your live chat appears after connection.';
@@ -64,15 +65,15 @@ function change(patch) {
     });
   }, 120);
 }
-for (const name of ['kick', 'twitch']) $(name).addEventListener('click', () => { provider = name; error(); paint(); });
+for (const name of Object.keys(providerNames)) $(name).addEventListener('click', () => { provider = name; error(); paint(); });
 $('connect').addEventListener('click', async () => {
   error();
-  if (!available[provider]) { error(`${provider === 'kick' ? 'Kick' : 'Twitch'} connections are not available on this server yet. Contact the service owner.`); return; }
+  if (!available[provider]) { error(`${providerNames[provider]} connections are not available on this server yet. Contact the service owner.`); return; }
   busy = true; generation++; paint();
   try {
     const result = await request('/api/session', { method: 'POST', body: JSON.stringify({ provider, settings }) });
     const address = new URL(result.authorizeURL);
-    if (!['id.kick.com', 'id.twitch.tv'].includes(address.hostname) || address.protocol !== 'https:') throw new Error('Invalid sign-in address');
+    if (!['id.kick.com', 'id.twitch.tv', 'accounts.google.com'].includes(address.hostname) || address.protocol !== 'https:') throw new Error('Invalid sign-in address');
     window.location.assign(address.href);
   } catch (failure) { error(failure.message); busy = false; paint(); }
 });
@@ -101,7 +102,7 @@ $('rotate').addEventListener('click', async () => {
 paint();
 try {
   const config = await request('/api/config'); available = config.providers;
-  if (!available.kick && available.twitch) provider = 'twitch';
+  provider = Object.keys(providerNames).find(name => available[name]) || 'kick';
   await refresh(); ready = true; paint();
 } catch { error('Chat Studio could not load. Refresh the page to try again.'); }
 async function poll() { await refresh(); setTimeout(poll, 1500); }

@@ -15,7 +15,7 @@ directly into a browser overlay.
 | --- | --- |
 | `public/` | Browser studio and transparent OBS overlay; literal message rendering |
 | `server/app.mjs` | Session isolation, OAuth callbacks, settings and overlay endpoints |
-| `server/providers/` | Official Kick and Twitch provider adapters |
+| `server/providers/` | Official Kick, Twitch and YouTube provider adapters |
 | `server/storage.mjs` | Encrypted, single-process session persistence |
 | `tests/` | Node built-in tests with mocked provider traffic |
 

@@ -7,6 +7,16 @@ import { createApp } from '../server/app.mjs';
 import { createStorage } from '../server/storage.mjs';
 
 const origin = 'https://studio.example';
+test('all three built-in providers are advertised and missing YouTube credentials fail clearly', async t => {
+  const server = createApp({ publicURL: origin });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => { server.closeAllConnections(); server.close(); });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  assert.deepEqual(await (await fetch(`${base}/api/config`)).json(), { providers: { kick: false, twitch: false, youtube: false } });
+  const reply = await fetch(`${base}/api/session`, { method: 'POST', headers: { 'X-Chat-Studio': '1', Origin: origin }, body: JSON.stringify({ provider: 'youtube' }) });
+  assert.equal(reply.status, 503); assert.match((await reply.json()).error, /^YouTube is not configured/);
+});
+
 async function fixture(t, extra = {}) {
   const streams = [];
   const fake = { configured: true, authorizeURL: state => `https://id.kick.com/oauth/authorize?state=${state}`,
@@ -14,7 +24,7 @@ async function fixture(t, extra = {}) {
     async maintain() {}, async verify(headers) { return headers['test-signature'] === 'valid'; },
     start(session, hooks) { streams.push({ session, hooks }); hooks.status('connected', 'Connected'); return () => { session.stopped = true; }; },
   };
-  const server = createApp({ publicURL: origin, ...extra }, { providers: { kick: fake, twitch: fake } });
+  const server = createApp({ publicURL: origin, ...extra }, { providers: { kick: fake, twitch: fake, youtube: fake } });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => { server.closeAllConnections(); server.close(); });
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -58,7 +68,7 @@ test('OAuth is browser-bound, one-use, and never reveals provider or owner crede
 
 test('multi-streamer channel isolation, names, bounded messages, settings, mode off and link revocation', async t => {
   const { request, login, streams } = await fixture(t);
-  const a = await login('42'), b = await login('99'), twitch = await login('42', 'twitch');
+  const a = await login('42'), b = await login('99'), twitch = await login('42', 'twitch'), youtube = await login('42', 'youtube');
   const readOverlay = key => request('/api/overlay', 'GET', null, undefined, { Authorization: `Bearer ${key}` });
   const post = (id, broadcaster = 42) => request('/webhooks/kick', 'POST', null,
     { message_id: id, broadcaster: { user_id: broadcaster }, sender: { username: 'Zərifə<script>', user_id: 77 }, content: '<img src=x onerror=alert(1)> [emote:123:HELLO]' },
@@ -70,6 +80,14 @@ test('multi-streamer channel isolation, names, bounded messages, settings, mode 
   assert.equal(data.messages[0].text, '<img src=x onerror=alert(1)> HELLO');
   assert.equal((await (await readOverlay(b.overlay)).json()).messages.length, 0);
   assert.equal((await (await readOverlay(twitch.overlay)).json()).messages.length, 0);
+  assert.equal((await (await readOverlay(youtube.overlay)).json()).messages.length, 0);
+  streams[3].hooks.message({ id: 'yt', broadcaster: '42', author: 'YouTube viewer', text: 'Hello' });
+  assert.equal((await (await readOverlay(youtube.overlay)).json()).messages[0].author, 'YouTube viewer');
+  assert.equal((await (await readOverlay(a.overlay)).json()).messages.length, 1);
+  assert.equal((await (await readOverlay(twitch.overlay)).json()).messages.length, 0);
+  await request('/api/settings', 'PATCH', youtube.cookie, { enabled: false });
+  assert.ok(streams[3].session.messagesAfter > 0);
+  assert.equal((await (await readOverlay(youtube.overlay)).json()).messages.length, 0);
   for (let n = 0; n < 105; n++) await post(`m${n}`);
   assert.equal((await (await readOverlay(a.overlay)).json()).messages.length, 100);
   for (const opacity of [0, 35, 100]) {

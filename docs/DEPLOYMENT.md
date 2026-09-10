@@ -3,8 +3,9 @@
 ## Requirements
 
 - One Node 22+ process, persistent writable storage and an HTTPS domain.
-- Kick and/or Twitch registered applications. Only configured providers can connect.
-- Outbound HTTPS to both platforms and WSS to `eventsub.wss.twitch.tv:443`.
+- Kick, Twitch and/or YouTube registered applications. Only configured providers can connect.
+- Outbound HTTPS to configured platforms (including `accounts.google.com`,
+  `oauth2.googleapis.com` and `www.googleapis.com` for YouTube) and WSS to `eventsub.wss.twitch.tv:443`.
 - Public access to the Kick webhook and OAuth callbacks through the same domain.
 
 Copy `.env.example` to `.env`, fill provider keys and set `PUBLIC_URL` to the exact
@@ -22,6 +23,41 @@ Keep this key stable and backed up securely. Losing it loses access to stored
 sessions. Changing it without migrating the file fails startup rather than
 silently discarding connections. Remove the empty example assignment if your
 environment-file parser does not accept duplicate keys.
+
+## YouTube / Google setup
+
+1. In Google Cloud, enable **YouTube Data API v3** for your project.
+2. Configure the OAuth consent screen and create an OAuth client of type
+   **Web application**. Add `https://YOUR-DOMAIN/oauth/youtube/callback` as an
+   authorized redirect URI. For local testing, register
+   `http://localhost:8787/oauth/youtube/callback` separately.
+3. Add `YOUTUBE_CLIENT_ID` and `YOUTUBE_CLIENT_SECRET` to your server secrets.
+   The app requests only `https://www.googleapis.com/auth/youtube.readonly`, with
+   offline access. Grant that permission and select the account/channel that owns
+   the stream. No API key, chat-writing scope or viewer sign-in is needed.
+4. In Google's testing mode, add the streamers as test users. Before general
+   availability, configure the production consent screen, domain and privacy
+   policy, and complete any verification required by your declared scopes.
+   See [Google's verification guidance](https://developers.google.com/identity/protocols/oauth2/production-readiness/sensitive-scope-verification).
+5. Enable live streaming on the connected YouTube channel. Start a broadcast with
+   live chat enabled. The studio checks for an active broadcast every 30 seconds,
+   receives new messages and returns to waiting after a broadcast ends. Initial
+   chat history and messages published while Streamer Mode was off are excluded.
+
+This dependency-free adapter uses the supported
+[`liveChatMessages.list` endpoint](https://developers.google.com/youtube/v3/live/docs/liveChatMessages/list).
+It requests up to 2,000 events per response, follows continuation tokens and waits
+at least five seconds (or YouTube's longer requested interval) between polls.
+Network/rate-limit failures back off automatically; exhausted quota or revoked
+access produces an actionable error and stops polling. Reconnect after resolving
+it. YouTube quota is shared across the entire Google Cloud project, including
+broadcast discovery while waiting. Disconnect unused sessions to stop API usage.
+
+Monitor actual quota use during full-length broadcasts and provision capacity for
+the number of streamers sold. See [YouTube's quota extension process](https://developers.google.com/youtube/v3/guides/quota_and_compliance_audits).
+For larger deployments, YouTube recommends the more efficient
+[`streamList` streaming API](https://developers.google.com/youtube/v3/live/streaming-live-chat);
+that gRPC transport is not implemented here.
 
 ## Docker
 
@@ -62,7 +98,7 @@ Keep overlay links private; replace a link if exposed.
 
 ## Live acceptance before release
 
-1. Configure real Kick and Twitch apps. Connect two streamer accounts in separate
+1. Configure real Kick, Twitch and YouTube apps; repeat these checks on each platform. Connect two streamer accounts in separate
    browser profiles. Verify consent, callback and connected status.
 2. Send a real viewer message. Confirm the username/content appears only in the
    correct studio and overlay. Include Unicode and a long message.
@@ -73,7 +109,8 @@ Keep overlay links private; replace a link if exposed.
    mode on again must not replay messages received while off.
 5. Close the studio tab, keep OBS running and send another message.
 6. On Twitch, delete a message, clear a user's messages and clear chat. Confirm
-   the overlay follows. Kick moderation deletion is not yet implemented.
+   the overlay follows. On YouTube, test viewer bans and message deletions when
+   delivered by the API. Kick moderation deletion is not yet implemented.
 7. Restart Node with the same data file and secret. Confirm saved links/settings
    survive and reception resumes. No old chat should be restored.
 8. Disconnect/reconnect the network. Check stale text is hidden and reception
@@ -81,7 +118,10 @@ Keep overlay links private; replace a link if exposed.
 9. Replace the link: the old link must go blank. Disconnect: the active link must
    go blank too. To revoke the provider grant, also remove the app in platform
    account settings; Kick subscriptions may remain and be reused.
-10. Record and inspect an actual OBS clip on the operating systems you will support.
+10. On YouTube, connect before going live; confirm waiting → live chat → waiting
+    → next broadcast. Check no old chat reappears after mode off/on, restart or
+    stream changes. Verify quota exhaustion, revoked consent and token refresh.
+11. Record and inspect an actual OBS clip on the operating systems you will support.
 
 Automated tests mock platform traffic. Real-account OAuth, delivery, rate limits,
 token expiry during a full broadcast and OBS recording remain live release checks.

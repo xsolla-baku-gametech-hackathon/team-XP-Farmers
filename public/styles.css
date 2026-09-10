@@ -124,10 +124,14 @@ h2 {
   background:transparent;
   border:1px solid transparent;
   color:var(--text);
-  min-height:52px;
+  min-height:78px;
+  min-width:0;
   flex:1;
   display:flex;
-  gap:10px;
+  flex-direction:column;
+  font-size:14px;
+  padding:8px 4px;
+  gap:6px;
   justify-content:center;
   align-items:center;
   border-radius:7px;
