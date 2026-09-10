@@ -13,7 +13,7 @@ window/size/viewport_height=800
 window/size/window_width_override=1280
 window/size/window_height_override=800
 window/size/min_width=1000
-window/size/min_height=680
+window/size/min_height=800
 window/stretch/mode="canvas_items"
 
 [rendering]

@@ -36,6 +36,7 @@ func _run() -> void:
 	_check(demo.arena.score == 0, "Demo resets gameplay")
 	demo.queue_free()
 	await process_frame
+	await create_timer(0.5).timeout
 	print("Foundation checks: %s" % ("PASS" if failures == 0 else "FAIL"))
 	quit(1 if failures else 0)
 

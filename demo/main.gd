@@ -144,7 +144,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 func _refresh() -> void:
 	mode_button.set_pressed_no_signal(controller.enabled)
 	mode_button.text = "STREAMER MODE  •  ON" if controller.enabled else "ENABLE STREAMER MODE"
-	status_label.text = "Mode enabled • integrated features active" if controller.enabled else "Mode off • normal game settings"
+	status_label.text = "Mode enabled • using selected features" if controller.enabled else "Mode off • normal game settings"
 	audio_label.text = services.get_audio_status()
 	audio_option.set_pressed_no_signal(controller.is_feature_selected(Controller.AUDIO))
 

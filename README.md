@@ -1,4 +1,4 @@
-﻿# Streamer Mode SDK
+# Streamer Mode SDK
 
 A reusable Godot addon that gives developers one switch for streamer features,
 with a small playable game to demonstrate integration. Built by Team XP Farmers
@@ -18,11 +18,11 @@ No Twitch account is needed for the foundation demo.
 
 - Playable 2D collection arena and Streamer Mode panel.
 - Reusable controller with master toggle, feature preferences, and signals.
-- Explicit integration points for audio, privacy and Twitch chat.
-- Automated controller and demo wiring checks.
+- Working music replacement with independent collection sound effects.
+- Automated controller, demo wiring and audio transition checks.
 
-Privacy, music replacement and chat are not implemented on the foundation branch.
-Their controls are labeled as pending; the sample lobby code is fictional.
+Privacy and Twitch chat are pending on this audio branch.
+Their controls are labeled as pending; the sample lobby code is fictional. Enable Streamer Mode to switch from Neon Run to Quiet Orbit. Both tracks are synthesized demo material, not third-party commercial songs.
 
 ## Product scope
 
@@ -51,6 +51,7 @@ Replace `godot` with the path to your Godot console executable if needed:
 ```sh
 godot --headless --path . --editor --import --quit
 godot --headless --path . --script res://tests/test_foundation.gd
+godot --headless --path . --script res://tests/audio/test_audio.gd
 ```
 
 Optional screenshots (requires a graphical session):
@@ -67,4 +68,4 @@ files, not `.godot/` caches, exports, account credentials or access tokens.
 One toggle must activate integrated features: switch managed music while keeping
 sound effects, conceal private text while preserving Copy, and show actual Twitch
 chat. Verify a real OBS recording and then integrate the addon into a second
-small project. These are upcoming milestones, not foundation capabilities.
+small project. Audio replacement is implemented. Privacy, live chat, a second project and OBS acceptance remain upcoming milestones. See [validation notes](docs/VALIDATION.md).
