@@ -232,7 +232,16 @@ panel.setup(engine)   # calls engine.exclude_subtree(panel) so it is never maske
 ```
 
 Drives only the public API. As a `PanelContainer` it blocks input only inside
-its own rect, so the game and the masks stay usable while it is open.
+its own rect, so the game and the masks stay usable while it is open. Its
+content scrolls, so give it whatever height suits the host.
+
+`close()` hides it and emits `close_requested`; the header's **X** button calls
+it. `open()` shows it and re-syncs the controls with the engine first. Connect
+`close_requested` so the button that opened the panel follows it:
+
+```gdscript
+panel.close_requested.connect(func(): panel_button.set_pressed_no_signal(false))
+```
 
 ## Tagging nodes as Private (editor tool)
 

@@ -57,13 +57,17 @@ func _ready() -> void:
 	control_panel.name = "PrivacyControlPanel"
 	control_panel.anchor_left = 1.0
 	control_panel.anchor_right = 1.0
+	control_panel.anchor_bottom = 1.0
 	control_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	control_panel.offset_left = -318
-	control_panel.offset_right = -30
+	control_panel.offset_right = -26
 	control_panel.offset_top = 96
+	control_panel.offset_bottom = -22
 	control_panel.hide()
 	add_child(control_panel)
 	control_panel.setup(privacy_engine)
+	# The panel's own X button un-toggles the button that opened it.
+	control_panel.close_requested.connect(func(): panel_toggle.set_pressed_no_signal(false))
 	# Automatic scanning is already running: PrivacyEngine.setup() starts it.
 	# It only needs to be told which subtree to watch.
 	privacy_engine.set_scan_root(self)
@@ -174,7 +178,11 @@ func _build_ui() -> void:
 	panel_toggle.focus_mode = Control.FOCUS_NONE
 	panel_toggle.custom_minimum_size = Vector2(64, 52)
 	panel_toggle.tooltip_text = "Show the privacy control panel"
-	panel_toggle.toggled.connect(func(on: bool): control_panel.visible = on)
+	panel_toggle.toggled.connect(func(on: bool):
+		if on:
+			control_panel.open()
+		else:
+			control_panel.hide())
 	mode_row.add_child(panel_toggle)
 	status_label = _label("", 12, MUTED)
 	settings.add_child(status_label)

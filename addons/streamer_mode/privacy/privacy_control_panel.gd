@@ -5,10 +5,15 @@ extends PanelContainer
 ## API. It excludes itself from scanning and masking, and being a PanelContainer
 ## it only blocks input inside its own rect - the game and the masks stay usable.
 
+## Emitted when the streamer closes the panel from its own X button, so the
+## host can un-toggle whatever button opened it.
+signal close_requested
+
 const _MUTED := Color("8fa4b0")
 const _INK := Color("e6edf0")
 
 var _engine: PrivacyEngine
+var _close_button: Button
 var _region_rows: Dictionary = {}   # StringName -> HBoxContainer
 
 var _regions_box: VBoxContainer
@@ -28,11 +33,34 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	add_theme_stylebox_override("panel", _panel_style())
 
+	# Scrolls so every section stays reachable when the host gives the panel
+	# less height than its content needs.
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	add_child(scroll)
+
 	var page := VBoxContainer.new()
 	page.add_theme_constant_override("separation", 12)
-	add_child(page)
+	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(page)
 
-	page.add_child(_heading("PRIVACY CONTROL"))
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 8)
+	page.add_child(header)
+	var title := _heading("PRIVACY CONTROL")
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	header.add_child(title)
+	_close_button = Button.new()
+	_close_button.name = "Close"
+	_close_button.text = "X"
+	_close_button.focus_mode = Control.FOCUS_NONE
+	_close_button.tooltip_text = "Close this panel"
+	_close_button.custom_minimum_size = Vector2(30.0, 26.0)
+	_close_button.pressed.connect(close)
+	header.add_child(_close_button)
 
 	_scan_toggle = CheckButton.new()
 	_scan_toggle.text = "Automatic scanning"
@@ -99,6 +127,19 @@ func setup(engine: PrivacyEngine) -> void:
 	_engine.region_masked.connect(_on_region_masked)
 	_engine.region_cleared.connect(_on_region_cleared)
 	_pull_state()
+
+
+## Hide the panel and tell the host, so its toggle button can follow.
+func close() -> void:
+	hide()
+	close_requested.emit()
+
+
+## Show the panel and re-sync its controls with the engine.
+func open() -> void:
+	if is_instance_valid(_engine):
+		_pull_state()
+	show()
 
 
 func _exit_tree() -> void:
