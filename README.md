@@ -7,16 +7,22 @@ There is no Electron companion or OBS dependency. No feature branches have been 
 ## Run the Godot demo
 
 1. Check out `twitch-chat` and import root `project.godot` in Godot 4.7.2.
-2. Press F5. The shared playground opens with the same **Streamer Mode** panel
-   used by the audio branch. Audio/privacy are unavailable until later integration.
-   Click **Chat settings** to open connection and appearance controls.
-3. Connect your channel through the relay browser page (setup below), copy the
-   private chat link, and paste it into the game's chat field. Click **Connect chat**.
-4. Enable **Streamer Mode** and **In-game chat**, then select **Back to game**.
-   New messages appear with usernames. WASD/arrows move; Escape closes chat
-   settings when open, otherwise it toggles Streamer Mode.
+2. Press F5 and click **Connect channel / Chat settings**.
+3. Select Kick, Twitch or YouTube and click **Connect channel**. Your normal
+   browser opens. Click **Continue to platform**, check the signed-in account,
+   and approve access. Return to Godot: the channel connects automatically.
+4. Click **Enable chat** in the same panel, then **Back to game**. This activates
+   the shared Streamer Mode controller and its CHAT preference. New messages
+   appear with usernames; no private-link copy/paste is needed.
 5. Adjust background opacity in the game. Alt + drag moves chat. Closing settings
-   preserves Streamer Mode. Turning off master mode or chat clears/hides messages.
+   preserves Streamer Mode. **Disconnect channel** removes this game's relay
+   session. Escape closes settings when open, otherwise toggles Streamer Mode.
+
+The host developer configures `StreamerChat.relay_url` (or project setting
+`streamer_mode/chat/relay_url`) to the deployed relay origin. The local demo
+fallback is `http://localhost:8788`; start the relay on that port for this demo.
+For Kick, the relay's PUBLIC_URL must still be its public HTTPS tunnel/domain.
+Ordinary streamers only choose a platform and approve it in their browser.
 
 The first snapshot after connection/enabling is discarded to avoid replaying history.
 Only subsequent messages are displayed. Moderation removals update the panel too.
@@ -52,7 +58,8 @@ See [addon API](addons/streamer_mode/chat/README.md) and
 ## Relay setup (developer / service owner)
 
 Use Node 22+. Copy `.env.example` to `.env` and configure the desired providers.
-Run `npm start`, then open `http://localhost:8787`. For production use an HTTPS
+Set `PORT=8788` for the local Godot demo and run `npm start`. Set `PUBLIC_URL`
+to your public HTTPS origin for Kick (or `http://localhost:8788` for local tests). For production use an HTTPS
 origin and persistent encrypted storage; see [deployment](docs/DEPLOYMENT.md).
 Streamers using a hosted relay do not install Node or the server.
 
@@ -78,6 +85,7 @@ godot --headless --editor --import --quit
 godot --headless --script tests/test_foundation.gd
 godot --headless --script tests/test_chat.gd
 node tests/godot_relay.mjs
+node tests/godot_pairing.mjs
 ```
 
 Automated provider tests use mocked platform traffic. Real-account OAuth and live

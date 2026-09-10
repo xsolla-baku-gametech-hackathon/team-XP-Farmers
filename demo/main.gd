@@ -112,7 +112,7 @@ func _build_ui() -> void:
 	chat_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	chat.add_child(chat_detail)
 	var chat_settings := Button.new()
-	chat_settings.text = "Chat settings"
+	chat_settings.text = "Connect channel / Chat settings"
 	chat_settings.pressed.connect(services.chat.open_settings)
 	chat.add_child(chat_settings)
 	page.add_child(_label("TEAM XP FARMERS     /     STREAMER MODE SDK                                       ESC  Toggle mode", 11, MUTED))

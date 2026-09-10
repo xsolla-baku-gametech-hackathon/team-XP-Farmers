@@ -3,7 +3,9 @@ extends PanelContainer
 ## Connection and appearance only; the host owns the master/feature controls.
 signal close_requested
 var _chat: StreamerChat
-var _link: LineEdit
+var _provider: OptionButton
+var _enable: Button
+var _channel: Label
 var _status: Label
 var _opacity: HSlider
 
@@ -22,20 +24,27 @@ func _ready() -> void:
 	title.add_theme_font_size_override("font_size", 24)
 	box.add_child(title)
 	var help := Label.new()
-	help.text = "Connect Twitch, Kick or YouTube in the relay browser page.\nPaste its private chat link here. Enable chat in Streamer Mode."
+	help.text = "Choose your platform and approve access in your browser."
 	box.add_child(help)
-	_link = LineEdit.new()
-	_link.placeholder_text = "https://your-relay/overlay#…"
-	_link.secret = true
-	box.add_child(_link)
+	_provider = OptionButton.new()
+	for provider in ["Kick", "Twitch", "YouTube"]:
+		_provider.add_item(provider)
+	box.add_child(_provider)
 	var connect_button := Button.new()
-	connect_button.text = "Connect chat"
+	connect_button.text = "Connect channel"
 	connect_button.pressed.connect(func():
-		_chat.connect_link(_link.text)
-		_link.clear())
+		_chat.connect_channel(["kick", "twitch", "youtube"][_provider.selected]))
 	box.add_child(connect_button)
+	_channel = Label.new()
+	_channel.text = "No channel connected"
+	box.add_child(_channel)
+	_enable = Button.new()
+	_enable.text = "Enable chat"
+	_enable.disabled = true
+	_enable.pressed.connect(func(): _chat.enable_chat())
+	box.add_child(_enable)
 	var disconnect_button := Button.new()
-	disconnect_button.text = "Disconnect chat"
+	disconnect_button.text = "Disconnect channel"
 	disconnect_button.pressed.connect(func():
 		if is_instance_valid(_chat): _chat.disconnect_chat())
 	box.add_child(disconnect_button)
@@ -79,9 +88,11 @@ func open() -> void:
 
 func close() -> void:
 	hide()
-	_link.clear()
 	get_viewport().gui_release_focus()
 	close_requested.emit()
 
 func _on_status(_state: String, detail: String) -> void:
 	_status.text = detail
+	if is_instance_valid(_chat):
+		_enable.disabled = not _chat.connection.connected
+		_channel.text = "Channel: " + _chat.connection.channel if _chat.connection.connected else "No channel connected"

@@ -49,3 +49,4 @@ jobs:
       - run: godot --headless --script tests/test_foundation.gd
       - run: godot --headless --script tests/test_chat.gd
       - run: node tests/godot_relay.mjs
+      - run: node tests/godot_pairing.mjs

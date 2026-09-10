@@ -144,3 +144,50 @@ test('encrypted persistence restores owner settings and overlay links without sa
   assert.equal(restored.settings.opacity, 73); assert.equal(restored.overlayURL, account.snapshot.overlayURL);
   assert.equal(restored.messages.length, 0);
 });
+
+test('native game pairing uses separate one-use browser and private polling capabilities', async t => {
+  const { request } = await fixture(t);
+  const created = await request('/api/device', 'POST', null, { provider: 'kick' });
+  assert.equal(created.status, 201);
+  const { token, browserURL } = await created.json();
+  const ticket = new URL(browserURL).hash.slice(1);
+  assert.notEqual(token, ticket);
+  const poll = secret => request('/api/device', 'GET', null, undefined, { Authorization: `Bearer ${secret}` });
+  assert.equal((await poll(ticket)).status, 401);
+  assert.equal((await poll('wrong')).status, 401);
+  assert.equal((await (await poll(token)).json()).state, 'connecting');
+  const claim = await request('/api/device/authorize', 'POST', null, { ticket });
+  assert.equal(claim.status, 200);
+  const cookie = claim.headers.get('set-cookie').split(';')[0];
+  const { authorizeURL } = await claim.json();
+  assert.equal((await request('/api/device/authorize', 'POST', null, { ticket })).status, 400);
+  const state = new URL(authorizeURL).searchParams.get('state');
+  const callback = `/oauth/kick/callback?state=${state}&code=42`;
+  assert.equal((await request(callback)).status, 400);
+  assert.equal((await request(callback, 'GET', cookie)).status, 303);
+  const paired = await (await poll(token)).json();
+  assert.equal(paired.channel, 'Channel 42');
+  assert.equal(paired.state, 'connected');
+  assert.ok(paired.overlayURL);
+  assert.equal(JSON.stringify(paired).includes('PRIVATE'), false);
+  assert.equal((await request('/api/session', 'GET', null, undefined, { Authorization: `Bearer ${token}` })).status, 401);
+  const overlay = new URL(paired.overlayURL).hash.slice(1);
+  assert.equal((await request('/api/device', 'DELETE', null, undefined, { Authorization: `Bearer ${overlay}` })).status, 401);
+  assert.equal((await request('/api/device', 'DELETE', null, undefined, { Authorization: `Bearer ${token}` })).status, 200);
+  assert.equal((await poll(token)).status, 401);
+  assert.equal((await request('/api/overlay', 'GET', null, undefined, { Authorization: `Bearer ${overlay}` })).status, 401);
+});
+
+test('game pairing fails closed on unsupported providers, foreign origins and cancelled OAuth', async t => {
+  const { request } = await fixture(t);
+  assert.equal((await request('/api/device', 'POST', null, { provider: 'invalid' })).status, 400);
+  assert.equal((await request('/api/device', 'POST', null, { provider: 'kick' }, { Origin: 'https://other.example' })).status, 403);
+  const { token, browserURL } = await (await request('/api/device', 'POST', null, { provider: 'youtube' })).json();
+  const claimed = await request('/api/device/authorize', 'POST', null, { ticket: new URL(browserURL).hash.slice(1) });
+  const cookie = claimed.headers.get('set-cookie').split(';')[0];
+  const state = new URL((await claimed.json()).authorizeURL).searchParams.get('state');
+  await request(`/oauth/youtube/callback?state=${state}&error=access_denied`, 'GET', cookie);
+  const failed = await (await request('/api/device', 'GET', null, undefined, { Authorization: `Bearer ${token}` })).json();
+  assert.equal(failed.state, 'error');
+  assert.equal('overlayURL' in failed, false);
+});

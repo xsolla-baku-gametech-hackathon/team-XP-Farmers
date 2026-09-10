@@ -9,7 +9,7 @@ import { createStorage } from './storage.mjs';
 
 const providerNames = { kick: 'Kick', twitch: 'Twitch', youtube: 'YouTube' };
 const IDLE_TTL = 7 * 24 * 3600000;
-const files = { '/': 'index.html', '/overlay': 'overlay.html', '/styles.css': 'styles.css',
+const files = { '/connect': 'connect.html', '/connect.mjs': 'connect.mjs', '/': 'index.html', '/overlay': 'overlay.html', '/styles.css': 'styles.css',
   '/studio.mjs': 'studio.mjs', '/overlay.mjs': 'overlay.mjs', '/chat.mjs': 'chat.mjs', '/favicon.svg': 'favicon.svg' };
 const mime = { html: 'text/html; charset=utf-8', css: 'text/css; charset=utf-8', mjs: 'text/javascript; charset=utf-8', svg: 'image/svg+xml' };
 
@@ -22,6 +22,7 @@ export function createApp(config, dependencies = {}) {
   };
   const storage = createStorage(config.dataFile, config.sessionSecret);
   const sessions = new Map(), rates = new Map(), deliveries = new Map();
+  const devices = new Map();
   const persist = () => storage.save(sessions);
   function cookie(key, age = IDLE_TTL / 1000) {
     return `xp_session=${key}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${age}${secure ? '; Secure' : ''}`;
@@ -57,6 +58,13 @@ export function createApp(config, dependencies = {}) {
     });
   }
   function cleanup() {
+    for (const [token, device] of devices) {
+      const session = sessions.get(device.key);
+      if (!session || (!session.user && Date.now() > device.expires)) {
+        if (session) remove(device.key);
+        devices.delete(token);
+      }
+    }
     for (const [key, session] of sessions) {
       if (Date.now() - session.touched > IDLE_TTL || (!session.tokens && Date.now() - (session.created || session.touched) > 600000)) remove(key);
     }
@@ -111,6 +119,44 @@ export function createApp(config, dependencies = {}) {
       });
       if (path.startsWith('/api/') && !['GET', 'HEAD'].includes(req.method)) {
         if (req.headers['x-chat-studio'] !== '1' || (req.headers.origin && req.headers.origin !== publicURL)) return send(res, 403, { error: 'Open Chat Studio on its configured address and try again.' });
+      }
+      if (req.method === 'POST' && path === '/api/device') {
+        let values;
+        try { values = JSON.parse(await body(req)); } catch { return send(res, 400, { error: 'Invalid JSON' }); }
+        if (!Object.hasOwn(providers, values?.provider || '')) return send(res, 400, { error: 'Choose Kick, Twitch or YouTube.' });
+        const provider = providers[values.provider];
+        if (!provider.configured) return send(res, 503, { error: `${providerNames[values.provider]} is not configured on this service.` });
+        const ip = req.socket.remoteAddress;
+        const rate = rates.get(ip) || { count: 0, until: Date.now() + 60000 };
+        rates.set(ip, rate);
+        if (++rate.count > 20 || rates.size > 10000 || sessions.size >= (config.maxSessions || 100)) return send(res, 429, { error: 'Too many connection attempts. Try again later.' });
+        const key = random(), token = random(), ticket = random(), state = random(), verifier = random();
+        sessions.set(key, { provider: values.provider, state: 'connecting', detail: 'Finish signing in through your browser.',
+          channel: '', user: null, created: Date.now(), touched: Date.now(), oauth: { state, verifier },
+          overlayKey: random(), settings: { ...defaults }, messages: [] });
+        devices.set(token, { key, ticket, expires: Date.now() + 600000 });
+        return send(res, 201, { token, browserURL: `${publicURL}/connect#${ticket}` });
+      }
+      if (req.method === 'POST' && path === '/api/device/authorize') {
+        let values;
+        try { values = JSON.parse(await body(req)); } catch { return send(res, 400, { error: 'Invalid JSON' }); }
+        const device = typeof values?.ticket === 'string' && [...devices.values()].find(d => d.ticket && d.ticket === values.ticket);
+        const session = device && sessions.get(device.key);
+        if (!session?.oauth || Date.now() > device.expires) return send(res, 400, { error: 'Connection expired or already opened. Start again in your game.' });
+        device.ticket = null; // Browser ticket is one-use and cannot read the game's capability.
+        return send(res, 200, { authorizeURL: providers[session.provider].authorizeURL(session.oauth.state, session.oauth.verifier) }, { 'Set-Cookie': cookie(device.key) });
+      }
+      if (path === '/api/device' && ['GET', 'DELETE'].includes(req.method)) {
+        const token = req.headers.authorization?.replace(/^Bearer /, '');
+        const device = devices.get(token), session = device && sessions.get(device.key);
+        if (!session) return send(res, 401, { error: 'Game connection expired. Connect your channel again.' });
+        if (req.method === 'DELETE') {
+          remove(device.key); devices.delete(token); persist();
+          return send(res, 200, { ok: true });
+        }
+        session.touched = Date.now();
+        return send(res, 200, { state: session.state, detail: session.detail, channel: session.channel,
+          ...(session.user && session.state !== 'error' ? { overlayURL: `${publicURL}/overlay#${session.overlayKey}` } : {}) });
       }
       if (req.method === 'POST' && path === '/api/session') {
         let values;

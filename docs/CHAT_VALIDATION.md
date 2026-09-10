@@ -24,3 +24,15 @@ Still to validate with real accounts: OAuth and live delivery for Twitch, Kick
 and YouTube, capturing the game in the stream, and combined audio/privacy/chat
 behavior after a separately authorized integration. The overlay belongs to the
 Godot game; it does not overlay unrelated desktop applications.
+
+## Native channel pairing update
+
+- Added platform selection, browser sign-in, automatic return of the channel to
+  Godot, explicit Enable chat, and paired-session disconnect.
+- Node suite: 15 tests passed, including separate browser/poll capabilities,
+  one-use browser claims, callback cookie binding, cancellation and revocation.
+- Godot pairing HTTP fixture: passed while SceneTree was paused, including
+  sign-in URL delivery, channel reception and authenticated disconnect.
+- Existing Godot chat and foundation suites passed.
+- Graphical capture remains unavailable in this execution environment. Live
+  provider consent for this new flow requires the user's browser interaction.

@@ -45,3 +45,24 @@ For later integration, set CHAT available in the common panel and forward
 `status_changed` to `set_feature_status(CHAT, detail)`. Connect your Chat settings
 button to `open_settings()`. Keep one shared controller and install audio/privacy
 through their own feature APIs. Do not create additional master switches.
+
+## Connect from the game
+
+Set `relay_url` on StreamerChat before adding it, or configure the project setting
+`streamer_mode/chat/relay_url`. Local fallback: http://localhost:8788. Never put
+provider credentials in the game. The server owns PUBLIC_URL and OAuth settings.
+
+`connect_channel(provider)` begins native browser pairing. `channel_connection.gd`
+creates a game-only polling capability, opens a separate one-use browser ticket,
+and polls until OAuth completes. The user confirms the platform account in their
+system browser. Godot obtains the read-only overlay link automatically; the UI
+contains no private-link field. `enable_chat()` explicitly enables the shared
+master and CHAT preference. `disconnect_chat()` also revokes the paired session.
+The original `connect_link()` remains available for existing host integrations.
+
+Pending pairing expires after ten minutes and is not persisted across relay
+restarts. Connected sessions expire under the relay's normal idle lifetime.
+Capabilities stay in memory; restarting the game requires connecting again.
+The component's browser_requested signal belongs to the connection client;
+StreamerChat handles it through OS.shell_open. No embedded platform login form
+or provider password storage is involved.

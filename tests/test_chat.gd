@@ -74,7 +74,7 @@ func _run() -> void:
 	chat.client.accept_snapshot({"state": "connected", "settings": {"enabled": true}, "messages": []})
 	chat.client.accept_snapshot({"state": "connected", "settings": {"enabled": true}, "messages": [{"id": "reentry", "author": "Test", "text": "Re-entry fixture"}]})
 	check(chat.overlay.messages == ["Test: Re-entry fixture"], "Re-entry restores client subscription")
-	check(chat.get_child_count() == 3, "Re-entry does not create duplicate components")
+	check(chat.get_child_count() == 4, "Re-entry does not create duplicate components")
 	demo.controller.queue_free()
 	await process_frame
 	check(not chat.overlay.visible and not chat.client._active, "Controller removal disables chat")
