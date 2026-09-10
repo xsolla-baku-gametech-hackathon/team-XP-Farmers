@@ -106,6 +106,22 @@ func _run() -> void:
 	await process_frame
 	var bar: VScrollBar = chat.overlay._label.get_v_scroll_bar()
 	check(bar.max_value > bar.page, "Long chat exposes scrollable history")
+	bar.value = 100
+	var wheel := InputEventMouseButton.new()
+	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
+	wheel.pressed = true
+	wheel.position = chat.overlay._label.get_global_rect().get_center()
+	check(chat.overlay._scroll_input(wheel), "Wheel over messages is handled")
+	check(bar.value < 100, "Mouse wheel moves history upward")
+	var before_pan := bar.value
+	var pan := InputEventPanGesture.new()
+	pan.position = wheel.position
+	pan.delta = Vector2(0, 1)
+	check(chat.overlay._scroll_input(pan), "Trackpad gesture is handled")
+	check(bar.value > before_pan, "Trackpad moves history downward")
+	wheel.position = Vector2(-10, -10)
+	check(not chat.overlay._scroll_input(wheel), "Scrolling outside chat is not intercepted")
+	check(not chat.overlay._dragging, "Scrolling never starts panel dragging")
 	bar.value = 50
 	var reading_position := bar.value
 	chat.overlay.replace_messages(history)
@@ -173,6 +189,15 @@ func _run() -> void:
 	await process_frame
 	check(not is_instance_valid(embedded.chat_window), "Host can retain in-game-only mode")
 	check(embedded.overlay.get_parent() == embedded, "In-game fallback keeps the original canvas hierarchy")
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	embedded.overlay._label.gui_input.emit(press)
+	check(embedded.overlay._dragging, "Plain press on chat body begins moving without Alt or Option")
+	embedded.overlay._top_left_handle.gui_input.emit(press)
+	check(embedded.overlay._resizing and embedded.overlay._resize_from_top_left and not embedded.overlay._dragging, "Top-left corner resizes instead of moving")
+	embedded.overlay._resize_handle.gui_input.emit(press)
+	check(embedded.overlay._resizing and not embedded.overlay._resize_from_top_left, "Bottom-right resizing remains available")
 	embedded.queue_free()
 	await process_frame
 	print("Godot chat checks: ", "PASS" if failures == 0 else "FAIL")

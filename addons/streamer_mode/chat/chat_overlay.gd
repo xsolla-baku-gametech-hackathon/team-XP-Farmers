@@ -1,7 +1,7 @@
 class_name StreamerChatOverlay
 extends Control
 ## Chat with usernames and an adjustable black background.
-## Scroll to read history, Alt-drag to move, drag the corner to resize.
+## Scroll to read history, drag the body to move, drag either corner to resize.
 
 @export_range(1, 100) var max_messages: int = 30
 @export var panel_size := Vector2(360, 220)
@@ -22,6 +22,10 @@ var _client: Node
 var _label: RichTextLabel
 var _dragging := false
 var _drag_offset := Vector2.ZERO
+var _drag_handle: Label
+var _top_left_handle: Label
+var _resize_from_top_left := false
+var _resize_position := Vector2.ZERO
 var _resize_handle: Label
 var _resizing := false
 var _resize_start := Vector2.ZERO
@@ -40,7 +44,7 @@ func _ready() -> void:
 	_label = RichTextLabel.new()
 	_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_label.offset_left = 12
-	_label.offset_top = 12
+	_label.offset_top = 34
 	_label.offset_right = -12
 	_label.offset_bottom = -24
 	_label.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -53,7 +57,40 @@ func _ready() -> void:
 	_label.add_theme_color_override("default_color", Color.WHITE)
 	_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_label.add_theme_constant_override("outline_size", 4)
+	_label.gui_input.connect(_on_drag_input)
 	add_child(_label)
+	var bar := _label.get_v_scroll_bar()
+	bar.custom_minimum_size.x = 12
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color(0.15, 0.2, 0.23, 0.7)
+	bar.add_theme_stylebox_override("scroll", track)
+	for state in ["slider", "slider_highlight", "slider_pressed"]:
+		var thumb := StyleBoxFlat.new()
+		thumb.bg_color = Color("b4ee93")
+		thumb.set_corner_radius_all(4)
+		bar.add_theme_stylebox_override(state, thumb)
+	_drag_handle = Label.new()
+	_drag_handle.text = "Live chat · Drag to move"
+	_drag_handle.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_drag_handle.offset_left = 28
+	_drag_handle.offset_top = 2
+	_drag_handle.offset_right = -8
+	_drag_handle.offset_bottom = 30
+	_drag_handle.mouse_filter = Control.MOUSE_FILTER_STOP
+	_drag_handle.mouse_default_cursor_shape = Control.CURSOR_MOVE
+	_drag_handle.add_theme_font_size_override("font_size", 13)
+	_drag_handle.add_theme_color_override("font_color", Color("b4ee93"))
+	_drag_handle.gui_input.connect(_on_drag_input)
+	add_child(_drag_handle)
+	_top_left_handle = Label.new()
+	_top_left_handle.text = "◤"
+	_top_left_handle.size = Vector2(24, 24)
+	_top_left_handle.mouse_filter = Control.MOUSE_FILTER_STOP
+	_top_left_handle.mouse_default_cursor_shape = Control.CURSOR_FDIAGSIZE
+	_top_left_handle.tooltip_text = "Drag to resize chat"
+	_top_left_handle.add_theme_color_override("font_color", Color("b4ee93"))
+	_top_left_handle.gui_input.connect(_on_resize_input.bind(true))
+	add_child(_top_left_handle)
 	_resize_handle = Label.new()
 	_resize_handle.text = "◢"
 	_resize_handle.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -154,12 +191,44 @@ func set_panel_size(value: Vector2) -> void:
 	_clamp_position()
 
 
-func _on_resize_input(event: InputEvent) -> void:
+func _on_drag_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_resizing = false
+		if is_instance_valid(desktop_window):
+			DisplayServer.window_start_drag(desktop_window.get_window_id())
+		else:
+			_dragging = true
+			_drag_offset = get_global_mouse_position() - global_position
+		_drag_handle.accept_event()
+
+
+func _scroll_input(event: InputEvent) -> bool:
+	if not (event is InputEventMouseButton or event is InputEventPanGesture):
+		return false
+	if not _label.get_global_rect().has_point(event.position):
+		return false
+	var amount := 0.0
+	if event is InputEventPanGesture:
+		amount = event.delta.y * 32.0
+	elif event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		amount = (-1.0 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0) * event.factor * 48.0
+	else:
+		return false
+	var bar := _label.get_v_scroll_bar()
+	bar.value = clampf(bar.value + amount, bar.min_value, maxf(bar.min_value, bar.max_value - bar.page))
+	get_viewport().set_input_as_handled()
+	return true
+
+
+func _on_resize_input(event: InputEvent, from_top_left := false) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		if is_instance_valid(desktop_window):
-			DisplayServer.window_start_resize(DisplayServer.WINDOW_EDGE_BOTTOM_RIGHT, desktop_window.get_window_id())
+			var edge := DisplayServer.WINDOW_EDGE_TOP_LEFT if from_top_left else DisplayServer.WINDOW_EDGE_BOTTOM_RIGHT
+			DisplayServer.window_start_resize(edge, desktop_window.get_window_id())
 			_resize_handle.accept_event()
 			return
+		_resize_from_top_left = from_top_left
+		_resize_position = position
 		_resizing = true
 		_dragging = false
 		_resize_start = get_global_mouse_position()
@@ -200,24 +269,24 @@ func _input(event: InputEvent) -> void:
 		_dragging = false
 		_resizing = false
 		return
+	if _scroll_input(event):
+		return
 	if _resizing:
 		if event is InputEventMouseMotion:
-			set_panel_size((_resize_size + get_global_mouse_position() - _resize_start).min(get_viewport_rect().size - position))
+			var delta := get_global_mouse_position() - _resize_start
+			if _resize_from_top_left:
+				var opposite := _resize_position + _resize_size
+				position = (_resize_position + delta).clamp(Vector2.ZERO, opposite - Vector2(240, 140))
+				set_panel_size(opposite - position)
+			else:
+				set_panel_size((_resize_size + delta).min(get_viewport_rect().size - position))
 			get_viewport().set_input_as_handled()
 		elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 			_resizing = false
 			get_viewport().set_input_as_handled()
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if event.pressed and event.alt_pressed and get_global_rect().has_point(get_global_mouse_position()):
-			if is_instance_valid(desktop_window):
-				DisplayServer.window_start_drag(desktop_window.get_window_id())
-				get_viewport().set_input_as_handled()
-				return
-			_dragging = true
-			_drag_offset = get_global_mouse_position() - global_position
-			get_viewport().set_input_as_handled()
-		elif not event.pressed and _dragging:
+		if not event.pressed and _dragging:
 			_dragging = false
 			get_viewport().set_input_as_handled()
 	elif event is InputEventMouseMotion and _dragging:

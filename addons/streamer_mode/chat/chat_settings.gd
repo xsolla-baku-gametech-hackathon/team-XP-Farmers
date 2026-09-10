@@ -67,8 +67,7 @@ func _ready() -> void:
 		opacity_label.text = "Chat background opacity · %d%%" % roundi(value * 100))
 	box.add_child(_opacity)
 	var hint := Label.new()
-	var move_key := "Option" if OS.has_feature("macos") else "Alt"
-	hint.text = "Scroll to read history · %s + drag to move\nDrag the bottom-right corner to resize" % move_key
+	hint.text = "Hold and drag the chat to move · Scroll to read history\nDrag the top-left or bottom-right corner to resize"
 	box.add_child(hint)
 	var close_button := Button.new()
 	close_button.text = "Back to game"

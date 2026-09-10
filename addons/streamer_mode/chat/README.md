@@ -77,8 +77,10 @@ apply. Disconnecting or switching channels clears history. Scroll inside the cha
 panel to read older messages. Repeated snapshots preserve your reading position;
 new messages follow automatically only when you are already at the bottom.
 
-Drag the bottom-right corner to resize (minimum 240 × 140, bounded by the screen in desktop mode),
-or call `overlay.set_panel_size(Vector2(width, height))`. Option-drag on macOS, or Alt-drag elsewhere, moves the panel.
+Drag the top-left or bottom-right corner to resize (minimum 240 × 140, bounded by the screen in desktop mode),
+or call `overlay.set_panel_size(Vector2(width, height))`. Hold the left mouse button on the chat body or header and drag to move the panel;
+no modifier key is needed. The scrollbar remains independently draggable.
+Mouse-wheel and trackpad scrolling over messages read history.
 Size and position stay in memory through mode toggles, not application restarts.
 
 
