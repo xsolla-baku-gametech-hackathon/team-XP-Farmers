@@ -13,6 +13,7 @@ var services: Node
 var arena: Control
 var settings_panel: StreamerModePanel
 var score_label: Label
+var chat_settings: Button
 var chat_status: Label
 
 
@@ -113,7 +114,7 @@ func _build_ui() -> void:
 	var chat_detail := _label("Twitch / Kick / YouTube\nConnect your channel and adjust the overlay.", 13, MUTED)
 	chat_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	chat.add_child(chat_detail)
-	var chat_settings := Button.new()
+	chat_settings = Button.new()
 	chat_settings.text = "Connect channel / Chat settings"
 	chat_settings.pressed.connect(services.chat.open_settings)
 	chat.add_child(chat_settings)
@@ -130,6 +131,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 
 func _refresh() -> void:
+	chat_settings.disabled = not controller.enabled
 	settings_panel.set_feature_status(Controller.AUDIO, services.get_audio_status())
 	settings_panel.set_feature_status(Controller.CHAT, services.get_chat_status())
 	chat_status.text = services.get_chat_status()

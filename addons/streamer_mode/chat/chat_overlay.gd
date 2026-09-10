@@ -4,12 +4,16 @@ extends Control
 ## Scroll to read history, Alt-drag to move, drag the corner to resize.
 
 @export_range(1, 100) var max_messages: int = 30
-@export var panel_size := Vector2(400, 260)
+@export var panel_size := Vector2(360, 220)
 @export_range(0.0, 1.0, 0.01) var background_opacity: float = 0.35:
 	set(value):
 		background_opacity = clampf(value, 0.0, 1.0)
 		if is_instance_valid(_background):
 			_background.color = Color(0, 0, 0, background_opacity)
+var display_enabled := false:
+	set(value):
+		display_enabled = value
+		_sync()
 var desktop_window: Window
 var messages: Array[String] = []
 var _background: ColorRect
@@ -226,7 +230,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _sync() -> void:
-	visible = is_instance_valid(_controller) and _controller.is_feature_active(StreamerModeController.CHAT)
+	visible = display_enabled and is_instance_valid(_controller) and _controller.is_feature_active(StreamerModeController.CHAT)
 	if is_instance_valid(desktop_window):
 		desktop_window.visible = visible
 	if not visible:

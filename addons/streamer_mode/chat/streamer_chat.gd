@@ -37,7 +37,7 @@ func _ready() -> void:
 		chat_window.unfocusable = true
 		chat_window.transparent = true
 		chat_window.transparent_bg = true
-		var ui_scale := maxf(1.0, DisplayServer.screen_get_scale(get_window().current_screen))
+		var ui_scale := 1.0
 		chat_window.content_scale_factor = ui_scale
 		chat_window.min_size = Vector2i(Vector2(240, 140) * ui_scale)
 		chat_window.size = Vector2i(overlay.panel_size * ui_scale)
@@ -94,6 +94,8 @@ func _on_status(state: String, detail: String) -> void:
 func _sync() -> void:
 	if not is_instance_valid(client):
 		return
+	if is_instance_valid(settings):
+		settings.refresh_controls()
 	client.set_active(is_instance_valid(_controller) and _controller.is_inside_tree()
 		and _controller.is_feature_active(StreamerModeController.CHAT))
 
@@ -125,16 +127,27 @@ func close_settings() -> void:
 func connect_link(link: String) -> bool:
 	return client.connect_link(link)
 
+func is_mode_enabled() -> bool:
+	return is_instance_valid(_controller) and _controller.enabled
+
+func is_chat_active() -> bool:
+	return is_mode_enabled() and overlay.display_enabled and _controller.is_feature_active(StreamerModeController.CHAT)
+
 func connect_channel(provider: String) -> void:
+	if not is_mode_enabled():
+		return
+	overlay.display_enabled = false
 	client.disconnect_chat()
 	connection.begin(provider)
 
 func enable_chat() -> void:
-	if is_instance_valid(_controller):
+	if is_mode_enabled() and connection.connected:
+		overlay.display_enabled = true
 		_controller.set_feature_enabled(StreamerModeController.CHAT, true)
-		_controller.set_enabled(true)
+		settings.refresh_controls()
 
 func disconnect_chat() -> void:
+	overlay.display_enabled = false
 	client.disconnect_chat()
 	connection.disconnect_channel()
 

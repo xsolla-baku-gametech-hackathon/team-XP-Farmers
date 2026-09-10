@@ -33,7 +33,11 @@ func _run() -> void:
 	demo.settings_panel.mode_button.button_pressed = true
 	_check(demo.controller.enabled, "UI toggle is wired to controller")
 	_check(demo.services.has_chat(), "Main demo installs chat through DemoServices")
-	_check(demo.services.chat.overlay.visible, "Main demo master switch activates chat")
+	_check(not demo.services.chat.overlay.visible, "Main demo waits for explicit chat enable")
+	_check(not demo.chat_settings.disabled, "Master switch enables channel settings")
+	demo.services.chat.connection.connected = true
+	demo.services.chat.enable_chat()
+	_check(demo.services.chat.overlay.visible, "Explicit enable opens chat")
 	_check(demo.settings_panel.feature_options[Controller.AUDIO].disabled, "Audio remains unavailable")
 	_check(demo.settings_panel.feature_options[Controller.PRIVACY].disabled, "Privacy remains unavailable")
 	demo.services.chat.client.status_changed.emit("connecting", "Connecting fixture")

@@ -13,7 +13,8 @@ client, and a transparent chat Control in a native always-on-top Window on deskt
 - `get_status()` returns the latest connection detail for initial panel sync.
 - `status_changed(state, detail)` can feed the host's existing status panel.
 
-Only `controller.is_feature_active(StreamerModeController.CHAT)` enables display.
+Display requires an explicit `enable_chat()` after connecting a channel, plus
+`controller.is_feature_active(StreamerModeController.CHAT)`.
 The relay's delivery switch must also remain enabled. Credentials are never
 exported into scenes or saved in Godot settings. Each HTTP request uses the
 private link's key as a Bearer capability to `/api/overlay`; redirects are disabled.
@@ -57,8 +58,8 @@ provider credentials in the game. The server owns PUBLIC_URL and OAuth settings.
 creates a game-only polling capability, opens a separate one-use browser ticket,
 and polls until OAuth completes. The user confirms the platform account in their
 system browser. Godot obtains the read-only overlay link automatically; the UI
-contains no private-link field. `enable_chat()` explicitly enables the shared
-master and CHAT preference. `disconnect_chat()` also revokes the paired session.
+contains no private-link field. `enable_chat()` requires the master to already be ON and a connected channel,
+then enables the CHAT preference and opens the overlay. `disconnect_chat()` also revokes the paired session.
 The original `connect_link()` remains available for existing host integrations.
 
 Pending pairing expires after ten minutes and is not persisted across relay
@@ -83,7 +84,9 @@ Size and position stay in memory through mode toggles, not application restarts.
 
 ## Desktop overlay
 
-Desktop builds default to `desktop_overlay = true`. The chat lives in a separate,
+Desktop builds default to `desktop_overlay = true`, with a compact 360 × 220
+pixel panel. Channel controls are disabled until Streamer Mode is ON; connecting
+a channel does not show the panel until the user presses Enable chat. The chat lives in a separate,
 non-modal, borderless native Window (`force_native`, `always_on_top`), so it is not
 clipped to the game or dismissed when another application is focused. The window
 cannot take keyboard focus, while its scrollbar and resize handle accept mouse
