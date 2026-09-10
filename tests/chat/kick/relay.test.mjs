@@ -12,7 +12,7 @@ function signed(payload, time = new Date().toISOString()) {
   headers['kick-event-signature'] = sign('RSA-SHA256', Buffer.concat([Buffer.from(`delivery-id.${time}.`), raw]), privateKey).toString('base64');
   return { raw, headers };
 }
-const event = id => ({ message_id: id, broadcaster: { user_id: 42 }, content: 'Salam [emote:123:HELLO] <b>literal</b>' });
+const event = id => ({ message_id: id, broadcaster: { user_id: 42 }, sender: { username: 'Zarifa235' }, content: 'Salam [emote:123:HELLO] <b>literal</b>' });
 
 test('Kick signatures reject tampering and stale deliveries', () => {
   const { raw, headers } = signed(event('1'));
@@ -71,6 +71,7 @@ test('OAuth, isolated sessions, signed delivery, deduplication, bounded history 
   let snapshot = await (await fetch(`${base}/session`, { headers: auth })).json();
   assert.equal(snapshot.state, 'connected');
   assert.equal(snapshot.messages.length, 1);
+  assert.equal(snapshot.messages[0].author, 'Zarifa235');
   assert.equal(snapshot.messages[0].text, 'Salam HELLO <b>literal</b>');
   assert.equal(JSON.stringify(snapshot).includes('PRIVATE'), false, 'Provider credentials never reach clients');
   const isolated = await (await fetch(`${base}/session`, { headers: { Authorization: `Bearer ${pending.session_key}` } })).json();

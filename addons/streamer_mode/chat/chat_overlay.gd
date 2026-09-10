@@ -1,11 +1,17 @@
 class_name StreamerChatOverlay
 extends Control
-## Transparent message-only overlay. Put under a CanvasLayer, outside containers.
+## In-game chat with usernames and an adjustable black background.
 ## Hold Alt and drag the message area to move it; ordinary input passes through.
 
 @export_range(1, 100) var max_messages: int = 30
 @export var panel_size := Vector2(400, 260)
+@export_range(0.0, 1.0, 0.01) var background_opacity: float = 0.35:
+	set(value):
+		background_opacity = clampf(value, 0.0, 1.0)
+		if is_instance_valid(_background):
+			_background.color = Color(0, 0, 0, background_opacity)
 var messages: Array[String] = []
+var _background: ColorRect
 var _controller: StreamerModeController
 var _client: Node
 var _label: RichTextLabel
@@ -16,8 +22,17 @@ var _drag_offset := Vector2.ZERO
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	size = panel_size
+	_background = ColorRect.new()
+	_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_background.color = Color(0, 0, 0, background_opacity)
+	add_child(_background)
 	_label = RichTextLabel.new()
 	_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_label.offset_left = 12
+	_label.offset_top = 12
+	_label.offset_right = -12
+	_label.offset_bottom = -12
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_label.bbcode_enabled = false
 	_label.scroll_active = false
@@ -52,9 +67,12 @@ func bind_client(client: Node) -> void:
 		_client.message_received.connect(append_message)
 
 
-func append_message(_author: String, message: String) -> void:
+func append_message(author: String, message: String) -> void:
 	# Plain text deliberately prevents chat content from becoming BBCode.
-	messages.append(message.left(2000))
+	var username := author.replace("\n", " ").replace("\r", " ").strip_edges().left(100)
+	if username.is_empty():
+		username = "Unknown user"
+	messages.append(username + ": " + message.left(2000))
 	while messages.size() > maxi(1, max_messages):
 		messages.pop_front()
 	_render()
@@ -69,7 +87,7 @@ func _render() -> void:
 	if not is_instance_valid(_label):
 		return
 	_label.text = "\n".join(messages)
-	# Keep the newest lines visible without a scrollbar or background.
+	# Keep the newest lines visible without a scrollbar.
 	_scroll_latest.call_deferred()
 
 

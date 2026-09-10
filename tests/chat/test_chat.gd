@@ -28,9 +28,15 @@ func _run() -> void:
 	overlay.max_messages = 3
 	for index in range(10):
 		overlay.append_message("name", str(index))
-	_check(overlay.messages == ["7", "8", "9"], "History stays bounded")
+	_check(overlay.messages == ["name: 7", "name: 8", "name: 9"], "History stays bounded")
 	overlay.append_message("name", "[b]literal[/b]")
 	_check(not overlay._label.bbcode_enabled and "[b]literal[/b]" in overlay._label.text, "User text cannot inject BBCode")
+	for opacity in [0.0, 0.5, 1.0]:
+		overlay.background_opacity = opacity
+		_check(is_equal_approx(overlay._background.color.a, opacity), "Panel opacity follows setting")
+		_check(overlay._label.modulate.a == 1.0, "Panel opacity does not fade text")
+	overlay.background_opacity = 2.0
+	_check(overlay.background_opacity == 1.0, "Opacity is clamped")
 	overlay.position = Vector2(10000, -100)
 	overlay._clamp_position()
 	_check(overlay.position.y == 0 and overlay.position.x + overlay.size.x <= overlay.get_viewport_rect().size.x, "Dragged chat remains on screen")
@@ -39,14 +45,25 @@ func _run() -> void:
 	root.add_child(client)
 	overlay.bind_client(client)
 	client.message_received.connect(func(_author: String, _message: String): received += 1)
-	var packet := {"state": "connected", "detail": "Receiving Kick chat", "cursor": 1, "messages": [{"sequence": 1, "text": "Salam"}]}
+	var packet := {"state": "connected", "detail": "Receiving Kick chat", "cursor": 1, "messages": [{"sequence": 1, "author": "Zarifa235", "text": "Salam"}]}
 	client._accept_reply(packet)
 	client._accept_reply(packet)
-	_check(received == 1 and overlay.messages == ["Salam"], "Kick relay cursor prevents duplicate messages")
+	_check(received == 1 and overlay.messages == ["Zarifa235: Salam"], "Kick relay cursor prevents duplicate messages")
 	client._accept_reply({"state": "error", "detail": "Expired"})
 	_check(client.state == "error" and client._key.is_empty(), "Relay errors stop polling and clear session key")
 	overlay.bind_client(null)
 	_check(not client.message_received.is_connected(overlay.append_message), "Client unbind disconnects signals")
+	var component = load("res://addons/streamer_mode/chat/kick_chat.tscn").instantiate()
+	component.bind_controller(other)
+	root.add_child(component)
+	_check(component.overlay.visible, "Scene binds controller before ready")
+	component.open_settings()
+	_check(component._settings.visible, "Settings open inside Godot")
+	component.opacity_slider.value = 0.73
+	_check(is_equal_approx(component.overlay._background.color.a, 0.73), "User slider adjusts background")
+	component.close_settings()
+	_check(not component._settings.visible, "Settings close without hiding chat")
+	component.queue_free()
 	overlay.queue_free()
 	client.queue_free()
 	controller.queue_free()

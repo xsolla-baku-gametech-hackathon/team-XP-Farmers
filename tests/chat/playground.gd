@@ -1,12 +1,8 @@
 extends Control
-## Explicit offline preview; real connection uses local environment credentials.
+## Feature scene inside the shared Godot project; not a separate desktop app.
 const Controller = preload("res://addons/streamer_mode/core/streamer_mode_controller.gd")
-const Overlay = preload("res://addons/streamer_mode/chat/chat_overlay.gd")
-const Client = preload("res://addons/streamer_mode/chat/kick_relay_client.gd")
-var overlay: StreamerChatOverlay
-var client: KickRelayClient
-var status: Label
-
+const ChatScene = preload("res://addons/streamer_mode/chat/kick_chat.tscn")
+var chat: StreamerKickChat
 
 func _ready() -> void:
 	var background := ColorRect.new()
@@ -17,50 +13,35 @@ func _ready() -> void:
 	var controller := Controller.new()
 	add_child(controller)
 	controller.set_enabled(true)
-	client = Client.new()
-	add_child(client)
-	var layer := CanvasLayer.new()
-	add_child(layer)
-	overlay = Overlay.new()
-	layer.add_child(overlay)
-	overlay.bind_controller(controller)
-	overlay.bind_client(client)
+	chat = ChatScene.instantiate()
+	chat.relay_url = OS.get_environment("KICK_RELAY_URL")
+	chat.bind_controller(controller)
+	add_child(chat)
 	var controls := VBoxContainer.new()
 	controls.position = Vector2(24, 24)
+	controls.add_theme_constant_override("separation", 12)
 	add_child(controls)
 	var title := Label.new()
-	title.text = "CHAT TEST SCENE • Offline preview\nHold Option/Alt and drag the chat to move it."
+	title.text = "KICK CHAT • GODOT FEATURE TEST\nConnect in settings, or add a labeled OFFLINE sample."
 	controls.add_child(title)
-	status = Label.new()
-	status.text = client.detail
-	controls.add_child(status)
-	client.status_changed.connect(func(_state: String, message: String): status.text = message)
+	var settings := Button.new()
+	settings.text = "Kick chat settings / background opacity"
+	settings.pressed.connect(chat.open_settings)
+	controls.add_child(settings)
 	var preview := Button.new()
-	preview.text = "Add OFFLINE test message"
+	preview.text = "Add OFFLINE test messages"
 	preview.pressed.connect(func():
-		client.disconnect_chat()
-		title.text = "CHAT TEST SCENE • OFFLINE sample messages\nHold Option/Alt and drag the chat to move it."
-		overlay.append_message("", "OFFLINE TEST: Salam! Oyun çox gözəldir. [%s]" % Time.get_ticks_msec())
+		chat.disconnect_chat()
+		chat.overlay.append_message("Zarifa", "OFFLINE TEST: Salam! Oyun çox gözəldir.")
+		chat.overlay.append_message("Player2", "OFFLINE TEST: [b]Bu yazı olduğu kimi görünür.[/b]")
 	)
 	controls.add_child(preview)
-	var connect_button := Button.new()
-	connect_button.text = "Connect my Kick (local environment credentials)"
-	connect_button.pressed.connect(func():
-		overlay.clear_messages()
-		title.text = "CHAT TEST SCENE • Live Kick mode\nHold Option/Alt and drag the chat to move it."
-		client.connect_session(OS.get_environment("KICK_RELAY_URL"), OS.get_environment("KICK_SESSION_KEY"))
-	)
-	controls.add_child(connect_button)
 	var toggle := CheckButton.new()
 	toggle.text = "Streamer Mode"
 	toggle.button_pressed = true
 	toggle.toggled.connect(controller.set_enabled)
 	controls.add_child(toggle)
-	var reset := Button.new()
-	reset.text = "Reset chat to bottom right"
-	reset.pressed.connect(overlay.reset_position)
-	controls.add_child(reset)
 	var stop := Button.new()
-	stop.text = "Disconnect"
-	stop.pressed.connect(client.disconnect_chat)
+	stop.text = "Stop test"
+	stop.pressed.connect(func(): get_tree().quit())
 	controls.add_child(stop)

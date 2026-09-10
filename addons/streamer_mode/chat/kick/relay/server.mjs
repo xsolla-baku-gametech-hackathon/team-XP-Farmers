@@ -23,6 +23,7 @@ export function verifyWebhook(headers, raw, publicKey, now = Date.now()) {
 export function chatMessage(payload) {
   if (!Number.isSafeInteger(payload?.broadcaster?.user_id) || typeof payload.content !== 'string' || typeof payload.message_id !== 'string') return null;
   return { id: payload.message_id.slice(0, 200), broadcaster: payload.broadcaster.user_id,
+    author: typeof payload.sender?.username === 'string' ? payload.sender.username.replace(/[\r\n]/g, ' ').slice(0, 100) : 'Unknown user',
     text: payload.content.replace(/\[emote:\d+:([^\]]+)\]/g, '$1').slice(0, 2000) };
 }
 
@@ -163,7 +164,7 @@ export function createRelay(config, fetchImpl = fetch) {
           if (session.state !== 'connected' || session.user !== message.broadcaster || session.seen.has(message.id)) continue;
           session.seen.add(message.id);
           if (session.seen.size > 1000) session.seen.delete(session.seen.values().next().value);
-          session.messages.push({ id: message.id, text: message.text, sequence: ++session.sequence });
+          session.messages.push({ id: message.id, author: message.author, text: message.text, sequence: ++session.sequence });
           if (session.messages.length > 100) session.messages.shift();
           session.detail = 'Receiving Kick chat';
         }

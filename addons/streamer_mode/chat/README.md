@@ -1,147 +1,132 @@
-# Kick chat — macOS companion and optional Godot adapter
+# Kick chat — Godot component
 
-Branch remains `twitch-chat`; the requested provider is now **Kick**.
-This branch's product is a standalone macOS overlay for messages over other
-applications. The shared foundation remains a Godot SDK demo. Both can live in
-the repository and be shipped together, but merging does not turn the SDK's
-privacy/audio features into system-wide features.
+Owner branch: `twitch-chat`. Provider: **Kick**. Godot 4.7.2 standard.
 
-## Implemented
+This feature now runs inside the shared Godot project. The standalone native Mac
+app sources and build entry point have been removed. No separate desktop chat
+app needs to be launched. The public Kick webhook relay remains necessary for
+receiving events from Kick.
 
-- Native AppKit `.app`: transparent, borderless, message-only panel, bottom right.
-- White outlined text; no names, avatars, chat background or browser page.
-- Click-through while locked. Use **Çatın yerini dəyiş** to drag, then lock it.
-- Saved position, monitor clamping, show/hide, reset and menu-bar controls.
-- Floating panel joins Spaces and requests macOS fullscreen auxiliary behavior.
-- Browser-based Kick OAuth with PKCE; each streamer signs in to their own account.
-- Node relay verifies Kick RSA signatures and timestamp freshness, routes only to
-  the authenticated broadcaster, deduplicates and bounds messages.
-- Provider access/refresh tokens and app secret remain on the relay; desktop gets
-  a temporary, unguessable session key. No credentials are committed.
-- Token refresh, subscription rechecks, reconnecting polling and honest status.
+## User behavior
 
-## Run the Mac app first
+- Chat starts at the bottom right of the game viewport.
+- Each message displays `username: message`, using the actual Kick sender name.
+- A black panel sits behind the text. Background opacity is adjustable from
+  0% (fully transparent) to 100% (solid black), with a default of 35%.
+- Text stays opaque at every background setting. Both names and message bodies
+  are literal text, so user-supplied markup cannot alter the UI.
+- Hold Option/Alt and drag the chat to move it. Ordinary clicks pass through to
+  gameplay. Position remains inside the viewport on resize.
+- Shared Streamer Mode and CHAT preference show/hide the overlay.
+- Account sign-in, status, opacity slider and reset position are in an embedded
+  Godot settings panel. Sign-in opens the normal Kick consent page in a browser;
+  reception and rendering then run inside Godot.
 
-From the repository root (Apple Command Line Tools required):
+## Integration after merge
 
-```sh
-sh addons/streamer_mode/chat/kick/macos/build.sh
-open 'addons/streamer_mode/chat/kick/macos/builds/XP Farmers Kick Chat.app'
+Instantiate `addons/streamer_mode/chat/kick_chat.tscn` as a child of your game's
+root (it already has a CanvasLayer), bind the shared controller, and open its
+settings from the game's UI:
+
+```gdscript
+const KickChat = preload("res://addons/streamer_mode/chat/kick_chat.tscn")
+var chat = KickChat.instantiate()
+chat.relay_url = your_team_relay_https_origin
+chat.bind_controller(controller) # Also works after add_child().
+add_child(chat)
+chat.open_settings()
 ```
 
-Click **Sınaq mesajı (OFFLINE)** to test transparency and placement without any
-Kick account. This disconnects live chat and explicitly labels the sample text.
-Switch to a game and check the lower-right corner. Use **Çatın yerini dəyiş** to
-drag the outlined area, then **Yeri sabitlə** so mouse clicks reach the game.
-The settings window can be closed; the menu-bar item reopens it or quits.
+Public API:
 
-The native panel is designed for other apps, including fullscreen Spaces, but
-real games and OBS must be tested on the target Mac. Exclusive fullscreen or
-unusual game compositors may prevent overlays. Windowed/borderless mode is the
-fallback. A game-window-only OBS capture may omit a separate overlay; verify
-Display Capture or explicitly compose the overlay. No claim of universal game
-compatibility is made. Build is local and unsigned/unnotarized; distribution
-signing and notarization are a separate release step.
+- `bind_controller(controller)` — synchronize shared master/CHAT state.
+- `open_settings()` / `close_settings()` — show/hide embedded settings.
+- `connect_account(address)` — clear previous messages and start Kick OAuth.
+- `disconnect_chat()` — stop polling, remove the relay session and clear chat.
+- `set_background_opacity(value)` — 0.0–1.0, synchronized with the settings slider.
+- `overlay.reset_position()` — return to the lower-right corner.
+- `client.status_changed(state, detail)` — connection feedback for a host UI.
+- `client.message_received(author, message)` — parsed Kick message signal.
 
-## Configure live Kick once for the team
+Appearance/position preferences are session-only. The host may persist them in
+its own settings. Hiding Streamer Mode does not sign the account out; use
+`disconnect_chat()` if background reception is unwanted. Bind an existing
+controller explicitly; the addon does not create a global autoload.
 
-Kick's official chat event is a webhook, so a public HTTPS relay is required.
-This source does not scrape Kick or pretend that entering a channel name alone
-establishes a live connection.
+The integration owner still owns `demo/` and `project.godot`. This branch changes
+only the chat addon and its tests, and does not merge other branches. The main
+foundation demo remains unchanged until integration. This embedded component
+renders inside the host Godot game, rather than above arbitrary external games.
 
-1. Register the team's application in Kick developer settings.
-2. Deploy `kick/relay/server.mjs` with Node 22+ behind HTTPS. A Dockerfile is included.
-   Put `KICK_CLIENT_ID`, `KICK_CLIENT_SECRET`, and `KICK_RELAY_PUBLIC_URL` into the
-   hosting provider's private environment settings. The public URL is an origin
-   such as `https://chat.example.com`, without a path or trailing slash.
-3. Register the exact redirect URI `https://chat.example.com/oauth/callback`.
-4. Enable webhooks and set the callback URL to
-   `https://chat.example.com/webhooks/kick` in the Kick application settings.
-5. Put `https://chat.example.com` into the Mac application's server field and
-   click **Kick hesabımı qoş**. Sign in as the broadcaster and approve the
-   `user:read events:subscribe` permissions. No chat-writing permission is used.
-6. Send a message in that broadcaster's Kick chat. The app initially reports a
-   registered subscription and waits for delivery; only a real webhook changes
-   the status to **Receiving Kick chat**.
+## Test now, without merging
 
-Local relay startup (the `.env` file must stay untracked):
+Import the repository's `project.godot`. Open `tests/chat/playground.tscn` and run
+that scene with F6 (not F5, which starts the unchanged foundation demo).
+
+1. Click **Add OFFLINE test messages** for labeled samples with two usernames.
+2. Open **Kick chat settings / background opacity**.
+3. Move the opacity slider through 0%, 50% and 100%; only the panel changes.
+4. Close settings, drag the chat with Option/Alt, and test Streamer Mode off/on.
+5. For live chat, enter the relay HTTPS origin and click **Connect my Kick account**.
+   Complete Kick consent and return to Godot. Send a real channel message and
+   verify the sender name and content. Offline samples are cleared on login.
+
+`KICK_RELAY_URL` may prefill the test scene's address through the launch
+process environment; no tunnel address or credentials are hardcoded in source.
+
+## Kick webhook relay
+
+Run `kick/relay/server.mjs` using Node 22+. Register a Kick application with
+`user:read events:subscribe`, enable webhooks, and set:
+
+- Redirect URI: `https://your-relay.example/oauth/callback`
+- Webhook URL: `https://your-relay.example/webhooks/kick`
+
+Set `KICK_CLIENT_ID`, `KICK_CLIENT_SECRET`, `KICK_RELAY_PUBLIC_URL`, `HOST` and
+`PORT` in private server configuration. A tracked `.env.example` and Dockerfile
+are provided. Actual `.env` files, access tokens and secrets are ignored by git.
 
 ```sh
 cd addons/streamer_mode/chat/kick/relay
-cp .env.example .env
-# Fill the local file or supply private environment variables through your host.
 node --env-file=.env server.mjs
 ```
 
-A development tunnel may forward a public HTTPS URL to port 8787. Register its
-exact HTTPS origin in both Kick and the relay. No tunnel or public deployment
-is automatically started by this branch.
+The relay uses PKCE and single-use OAuth state. Kick access/refresh tokens stay
+on the server; Godot receives only a temporary bearer session key. Webhooks are
+verified against Kick's RSA public key and timestamp, deduplicated and routed
+by the authenticated broadcaster ID. Sender names come from `sender.username`.
+A missing sender is labeled `Unknown user`, never inferred from the broadcaster.
 
-## Relay lifetime and limits
+Subscriptions are checked and tokens refreshed while the session is active.
+Relay sessions expire after 30 minutes idle and are lost on server restart.
+At most 100 recent messages are retained per session in memory. No chat is stored
+on disk. Disconnect removes the local session; Kick app subscriptions can remain
+and be reused. Users may revoke the app through Kick account settings.
 
-Sessions and a maximum of 100 recent messages per session are in memory. Restart
-requires users to sign in again. Idle sessions expire after 30 minutes; an active
-app polls once per second. Disconnect removes the relay session and stops its
-delivery. Kick app-level webhook subscriptions can remain and are reused on the
-next login; users can revoke the app in Kick account settings. No chat is written
-to disk. Session keys are bearer credentials and should not be put into URLs or
-logs. Configure TLS, request/session-creation rate limits and redacted proxy logs
-before making the relay public. This small single-process relay caps 100 sessions;
-it is a hackathon deployment, not a horizontally scaled hosted service.
+The relay needs HTTPS or a development tunnel for Kick to reach it. The server
+and tunnel must stay running during tests. Do not publish secret values, session
+keys or OAuth query strings in logs. Before public deployment, configure TLS and
+proxy rate limits. This is a bounded single-process hackathon relay (100 sessions),
+not a horizontally scaled service. Emotes appear as names; moderation deletion
+and unlimited history replay are not implemented.
 
-Webhook signatures use the official public-key endpoint, cached for an hour.
-Events more than five minutes from server time are rejected, so keep the host's
-clock synchronized. Text is rendered literally; emote markup is reduced to its
-name. Images, moderation deletions and message replay outside the bounded buffer
-are not implemented.
-
-## Merge and bundle handoff
-
-Changes stay under `addons/streamer_mode/chat/` and `tests/chat/`; shared
-`project.godot`, `demo/`, audio and privacy files are untouched. The old Twitch
-client has been replaced by Kick. Native/server sources are behind `.gdignore`
-and are not automatically exported by Godot.
-
-The integration owner can ship the generated `.app` beside the Godot app in the
-release bundle. Launch it through a bundled-app action or Finder. The relay is a
-separately hosted service; never bundle its application secret in the desktop app.
-No changes to another game's source are needed for the native chat overlay.
-
-For teams that ALSO want chat embedded in the foundation demo, the optional
-`chat_overlay.tscn` and `kick_relay_client.gd` are retained. Instantiate the overlay
-under CanvasLayer and pass the shared controller with `bind_controller(controller)`.
-Bind the relay client with `bind_client(client)`. Its `connect_session(https_origin,
-session_key)` accepts a session established through the relay OAuth flow.
-`message_received(author, message)` emits an empty author because this feature
-shows only message text. `status_changed(state, detail)` belongs in settings.
-The master/CHAT preference hides the in-game Control; it does not control the
-separate native app. The integration owner must design any shared desktop toggle
-explicitly. `disconnect_chat()` stops the optional adapter's local polling;
-DELETE `/session` also removes the server session when appropriate.
-
-`tests/chat/playground.tscn` is the optional Godot preview, not the native desktop
-app. Its live test button reads `KICK_RELAY_URL` and `KICK_SESSION_KEY` from the
-local environment. Tests are explicitly offline until a valid session is supplied.
-
-## Verification
+## Automated checks
 
 ```sh
 node --test tests/chat/kick/relay.test.mjs
-sh addons/streamer_mode/chat/kick/macos/build.sh
-'addons/streamer_mode/chat/kick/macos/builds/XP Farmers Kick Chat.app/Contents/MacOS/KickChat' --smoke-test
 godot --headless --path . --editor --import --quit
 godot --headless --path . --script res://tests/chat/test_chat.gd
 godot --headless --path . --script res://tests/test_foundation.gd
 ```
 
-Relay tests use generated signing keys and mocked Kick endpoints: OAuth state
-replay, signatures/tampering/staleness, channel isolation, duplicate delivery,
-history bounds, cursors, credential isolation and disconnect are checked.
-Native build and window-property smoke checks do not prove live Kick delivery,
-fullscreen game compatibility or OBS capture. Those need manual verification.
+Checks cover names, literal text, opacity limits/slider wiring/text opacity,
+bounded history, controller binding, scene settings, viewport clamping, cursor
+filtering, OAuth replay rejection, signed webhook delivery, channel isolation,
+credential isolation and disconnect. Live Kick delivery was user-confirmed on
+the earlier native prototype; the new embedded Godot flow needs its own live
+sign-in verification.
 
-## Official references
-
+Official protocol references:
 - https://docs.kick.com/getting-started/generating-tokens-oauth2-flow
 - https://docs.kick.com/events/webhook-security
 - https://docs.kick.com/events/event-types
