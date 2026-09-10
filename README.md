@@ -71,3 +71,20 @@ One toggle must activate integrated features: switch managed music while keeping
 sound effects, conceal private text while preserving Copy, and show actual Twitch
 chat. Verify a real OBS recording and then integrate the addon into a second
 small project. Audio replacement is implemented. Audio and the settings panel have been validated in a separate second project. Privacy, live chat and OBS acceptance remain upcoming milestones. See [validation notes](docs/VALIDATION.md).
+
+## Verify and build
+
+Run all reviewed suites with:
+
+```sh
+node tools/verify.cjs "<Godot console executable>"
+```
+
+Build a standalone Windows demo with matching export templates installed:
+
+```sh
+node tools/build_windows.cjs "<Godot console executable>" "<empty build directory>"
+```
+
+See [build and presentation instructions](docs/BUILD_AND_DEMO.md) and the
+[next feature integration checkpoint](docs/FEATURE_INTEGRATION.md).
