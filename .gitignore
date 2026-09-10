@@ -1,0 +1,9 @@
+.godot/
+.artifacts/
+builds/
+export_credentials.cfg
+.env
+.env.*
+!.env.example
+*.log
+
