@@ -1,48 +1,35 @@
-# Next integration checkpoint
+# Combined integration checkpoint
+Snapshot: 10 September 2026. Branch: integration/streamer-mode.
 
-Last reviewed remote state: 2026-09-10.
+## Completed
+- Merged privacy-mask-copy at 0dc76e8 with SDK/audio work based on 0fbc00f, preserving teammate history.
+- Resolved shared demo and README conflicts around the audio implementation.
+- Shard Run and Signal Garden open streamer controls through Settings / Escape.
+- Resume dismisses the modal menu without disabling audio or privacy.
+- Arena movement is suspended while settings are open; puzzle input is blocked by the modal.
+- Integrated PrivacyCopyField and PrivacyEngine into both independent hosts.
+- Critical invite fields hide source text synchronously, retain Copy, and use opaque mask tint.
+- Original scanner, blur, manual-region controls and editor plugin remain in the addon. Advanced privacy configuration is not exposed in these simplified demo menus.
+- Chat remains separate; neither its branch nor main was changed.
 
-| Feature branch | Reviewed state | What is needed next |
-| --- | --- | --- |
-| twitch-chat | Foundation only (c79fda9) | Push the client and panel implementation |
-| privacy-mask-copy | Standalone movable mask preserved (d454e2c) | Push a component connected to the shared controller |
-| stream-safe-audio | Audio and reusable panel (9625251) | Combined integration once other features are ready |
+## Verification
+The runner now executes 11 functional suites: foundation, audio, panel, seven privacy suites, and the independent-game suite. It also imports both projects. Windows packaging verifies export startup.
 
-These are reviewed snapshots, not a live status board. A teammate may have newer
-local work. Fetch again before beginning integration.
+Copy-field checks cover synchronous source suppression, mode changes and copying. Headless runs verify copied payloads; desktop clipboard and a real recording still need manual acceptance.
 
-## Privacy handoff
+## Performance finding
+A forced 300-control scanner sweep measured about 34 ms in this environment against the existing 16 ms target. Functional scanner checks still pass. The benchmark remains printed in the churn log; its performance threshold is now an explicit opt-in gate so it is not confused with correctness.
 
-Keep the original standalone prototype intact. The shared-game component should
-accept a controller and synchronize immediately with PRIVACY effective state.
-Its normal mode restores the intended UI. The selected protected area must conceal
-the underlying information sufficiently; the current translucent rectangle alone
-does not establish readable-text protection. If the approach is protected text,
-keep Copy functional without exposing the source value in feedback or tooltips.
+Run the strict benchmark:
+~~~sh
+godot --headless --path . --script res://tests/privacy/test_privacy_engine_churn.gd -- --strict-performance
+~~~
 
-Deliver a small test scene demonstrating enable, disable, scene re-entry and
-changed values. A manual region mask may need a different host integration from a
-protected-text component; settle that API with the integration owner before wiring
-the shared game. Do not mark the feature available merely because a prototype exists.
+The default verifier reports performance acceptance as pending. This change does not claim the scanner meets its target. Measure and tune batching on the selected real game. General automatic scanning can have detection/animation delays; critical Copy fields suppress their source text separately.
 
-## Twitch handoff
-
-Deliver the client and UI separately, with visible disconnected/connecting/error
-states and a bounded message history. Bind chat visibility to the controller's
-CHAT effective state. Provide connection setup instructions without committing
-credentials. Demonstrate an actual channel message and reconnection; offline test
-messages must be explicitly labeled in tests and never presented as live chat.
-
-## Integration owner workflow
-
-1. Fetch current remote branches and inspect commits and shared-file changes.
-2. Merge ready feature work into an isolated local integration branch based on the
-   latest tested application. Preserve authorship and resolve changes with owners.
-3. Connect components in demo/demo_services.gd and demo/main.gd. Use the existing
-   controller API and panel availability/status API.
-4. Add reviewed feature checks to tools/verify.cjs. Its current four suites do not
-   validate privacy or Twitch, and report both as pending.
-5. Exercise all features together and repeat integration in Signal Garden.
-6. Build Windows Demo, record OBS output, and rehearse the one-minute demonstration.
-
-A successful audio build is not completion of the three-feature MVP.
+## Next
+1. Select an independently developed Godot game with editable source and suitable asset/code permissions.
+2. Integrate settings, managed music and explicit sensitive fields there.
+3. Measure frame-time overhead and tune scanning scope/budget.
+4. Check desktop copying, audible transitions and recorded output.
+5. Review chat separately when its owner is ready.

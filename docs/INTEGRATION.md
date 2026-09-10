@@ -82,3 +82,10 @@ fresh copy.
 
 Privacy and Twitch integration remain separate milestones. Once complete, add
 them to both host projects and repeat the same checks.
+
+## Dismissible settings and privacy
+The optional ui/streamer_settings_menu.gd PopupPanel can host the existing panel using attach_panel(panel) and set_open(bool). Keep the controller/audio/privacy services outside the popup; hiding it does not disable them. The host owns gameplay pause and keyboard handling.
+
+Instantiate PrivacyEngine, call setup(controller), and register must-protect regions. PrivacyCopyField.bind(engine, id) registers its value area and now suppresses source text synchronously while active; Copy uses the stored value. The engine's active_changed(active) signal supports this synchronization. Both demos use opaque tint for these fields.
+
+The scanner remains useful for other supported text, but it has detection latency and a pending large-scene performance target. Do not rely only on pattern discovery for critical secrets.

@@ -7,3 +7,4 @@ export_credentials.cfg
 !.env.example
 *.log
 
+/android/

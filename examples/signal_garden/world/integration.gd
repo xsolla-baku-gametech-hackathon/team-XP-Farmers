@@ -9,6 +9,7 @@ var controller: StreamerModeController
 var music: StreamSafeAudio
 var click_sound: AudioStreamPlayer
 var panel: StreamerModePanel
+var privacy_engine: PrivacyEngine
 
 
 func _ready() -> void:
@@ -21,6 +22,13 @@ func _ready() -> void:
 	panel = get_parent().get_node("SettingsPanel")
 	panel.bind(controller)
 	panel.set_feature_available(Controller.AUDIO, true)
+	privacy_engine = PrivacyEngine.new()
+	add_child(privacy_engine)
+	privacy_engine.target_margin = 2.0
+	privacy_engine.setup(controller)
+	privacy_engine.set_mask_param("tint_amount", 1.0)
+	panel.set_feature_available(Controller.PRIVACY, true)
+	panel.set_feature_status(Controller.PRIVACY, "Garden invite concealed; Copy stays available.")
 	music.playback_changed.connect(_update_status)
 	music.play()
 	click_sound = AudioStreamPlayer.new()

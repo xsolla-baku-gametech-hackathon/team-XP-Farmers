@@ -9,7 +9,7 @@ for the Xsolla Baku GameTech Hackathon.
 1. Use **Godot 4.7.2 standard**, with GDScript (no .NET required).
 2. Import `project.godot` in the Godot Project Manager.
 3. Press **F5**. Move using WASD or arrow keys and collect green shards.
-4. Click the Streamer Mode button or press Escape to change the shared state.
+4. Press Escape or Settings, enable Streamer Mode, then choose Resume game. Protection stays active after closing settings.
 
 The project uses the Compatibility renderer and no external packages or plugins.
 No Twitch account is needed for the foundation demo.
@@ -22,8 +22,7 @@ No Twitch account is needed for the foundation demo.
 - Independent Signal Garden project using an unchanged copy of the addon.
 - Automated controller, panel lifecycle, audio and second-project integration checks.
 
-Privacy and Twitch chat are pending on this audio branch.
-Their controls are labeled as pending; the sample lobby code is fictional. Enable Streamer Mode to switch from Neon Run to Quiet Orbit. Both tracks are synthesized demo material, not third-party commercial songs.
+Privacy is integrated on this integration branch. The lobby code is concealed while Copy keeps the real value available. Chat remains a separate teammate application and its in-game control is unavailable. The sample lobby code is fictional. Enable Streamer Mode to switch from Neon Run to Quiet Orbit. Both tracks are synthesized demo material, not third-party commercial songs.
 
 ## Product scope
 
@@ -70,7 +69,7 @@ files, not `.godot/` caches, exports, account credentials or access tokens.
 One toggle must activate integrated features: switch managed music while keeping
 sound effects, conceal private text while preserving Copy, and show actual Twitch
 chat. Verify a real OBS recording and then integrate the addon into a second
-small project. Audio replacement is implemented. Audio and the settings panel have been validated in a separate second project. Privacy, live chat and OBS acceptance remain upcoming milestones. See [validation notes](docs/VALIDATION.md).
+small project. Audio replacement is implemented. Audio and the settings panel have been validated in a separate second project. Privacy is also integrated and checked in both project hosts. Live chat, scanner performance acceptance, real-game integration and recording/listening acceptance remain upcoming milestones. See [validation notes](docs/VALIDATION.md).
 
 ## Verify and build
 
@@ -88,3 +87,7 @@ node tools/build_windows.cjs "<Godot console executable>" "<empty build director
 
 See [build and presentation instructions](docs/BUILD_AND_DEMO.md) and the
 [next feature integration checkpoint](docs/FEATURE_INTEGRATION.md).
+
+## Combined integration
+
+See [integration status](docs/FEATURE_INTEGRATION.md) for menu behavior, privacy checks and the open scanner performance target. Privacy/audio run locally. Chat is a separate application and has not been merged here.

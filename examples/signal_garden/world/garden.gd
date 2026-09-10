@@ -5,6 +5,7 @@ var buttons: Array[Button] = []
 var moves: int = 0
 var progress_label: Label
 var panel: StreamerModePanel
+var settings_menu: PopupPanel
 @onready var integration: Node = $Integration
 
 
@@ -53,20 +54,28 @@ func _ready() -> void:
 	reset.custom_minimum_size.y = 42
 	reset.pressed.connect(_reset)
 	game.add_child(reset)
-	var sidebar := VBoxContainer.new()
-	sidebar.custom_minimum_size.x = 340
-	sidebar.add_theme_constant_override("separation", 20)
-	row.add_child(sidebar)
-	panel.reparent(sidebar)
-	var note := _label("Take your time.\nThe garden will wait.", 18, Color("456150"))
-	sidebar.add_child(note)
-	page.add_child(_label("CLICK TO PLAY     /     ESC TO TOGGLE STREAMER MODE", 12, Color("57745f")))
+	var settings_button := Button.new()
+	settings_button.text = "Settings / Esc"
+	settings_button.pressed.connect(func(): set_menu_open(true))
+	page.add_child(settings_button)
+	settings_menu = preload("res://addons/streamer_mode/ui/streamer_settings_menu.gd").new()
+	add_child(settings_menu)
+	settings_menu.attach_panel(panel)
+	var private_field := PrivacyCopyField.new()
+	private_field.caption = "GARDEN INVITE"
+	private_field.value = "GARDEN-7362"
+	game.add_child(private_field)
+	private_field.bind(integration.privacy_engine, &"garden_invite")
+	integration.privacy_engine.set_scan_root(game)
+	page.add_child(_label("CLICK TO PLAY     /     ESC FOR SETTINGS", 12, Color("57745f")))
 	_reset()
 	if "--capture" in OS.get_cmdline_user_args():
 		_capture.call_deferred()
 
 
 func _press_cell(index: int) -> void:
+	if settings_menu.visible:
+		return
 	_flip(index)
 	moves += 1
 	integration.play_click()
@@ -112,8 +121,12 @@ func _refresh_board() -> void:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
-		integration.controller.set_enabled(not integration.controller.enabled)
+		set_menu_open(not settings_menu.visible)
 		get_viewport().set_input_as_handled()
+
+
+func set_menu_open(open: bool) -> void:
+	settings_menu.set_open(open)
 
 
 func _label(value: String, font_size: int, color: Color) -> Label:

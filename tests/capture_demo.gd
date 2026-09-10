@@ -17,7 +17,13 @@ func _run() -> void:
 	await create_timer(0.3).timeout
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png("res://.artifacts/demo-on.png")
+	demo.set_menu_open(true)
+	await create_timer(0.2).timeout
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png("res://.artifacts/demo-settings.png")
+	demo.set_menu_open(false)
 	demo.queue_free()
 	await process_frame
+	await create_timer(0.5).timeout
 	quit()
 

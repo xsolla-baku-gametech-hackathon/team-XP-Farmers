@@ -19,7 +19,7 @@ Our initial audience is Godot developers who can integrate protection directly i
 
 Both the player and the captured game see the same protected interface and hear the same selected game audio. There is no separate viewer-only output.
 
-The permanent controls in the current demos are a showcase layout. Moving them into a dismissible settings menu is planned, not yet implemented. Privacy masks will remain visible over protected information, but configuration panels should not occupy gameplay space.
+Both demos now use a dismissible settings menu. Closing it keeps enabled services active. Privacy masks will remain visible over protected information, but configuration panels should not occupy gameplay space.
 
 ## What we are building
 The product is a tool integrated into games, not a new game. Our collection arena and Signal Garden puzzle are test hosts that demonstrate the addon.
@@ -28,14 +28,14 @@ The product is a tool integrated into games, not a new game. Our collection aren
 | --- | --- | --- |
 | Shared controller | Master switch, independent feature preferences, change signals | Implemented on the SDK/audio branch |
 | Stream-safe audio | Switch managed music to a supplied replacement, or silence it if no replacement exists; preserve independent sound effects | Implemented and tested |
-| Reusable settings panel | Host-game controls for available features | Implemented; menu-only presentation pending |
-| Privacy | Registered sensitive regions, text-pattern scanning, manual regions, copyable protected values | Implemented on teammate branch; combined integration pending |
+| Reusable settings panel | Host-game controls for available features | Implemented; dismissible menu implemented |
+| Privacy | Registered sensitive regions, text-pattern scanning, manual regions, copyable protected values | Integrated with audio on integration/streamer-mode; functional checks pass |
 | Live chat | Twitch, Kick, and YouTube chat via a Node service and Electron overlay | Separate teammate application; not integrated with the Godot controller |
-| Portability example | Independent Signal Garden project using an unchanged addon copy | Audio/controller/panel integration tested |
+| Portability example | Independent Signal Garden project using an unchanged addon copy | Audio/controller/panel/privacy integration tested |
 | Windows package | Exportable demo plus verification/build tools | Implemented |
 | Existing-game acceptance | Integrate into a real, independently developed Godot game | Planned |
 
-“Implemented” does not mean all components have been tested together. The reviewed audio verification does not certify the latest privacy branch or live provider connections.
+“Implemented” does not mean all components have been tested together. The integration runner covers seven privacy suites as well; it does not certify live provider connections or the scanner performance target.
 
 ## Technical design
 Godot runtime code uses GDScript and the Compatibility renderer. The current project is tested with Godot 4.7.2.
@@ -71,7 +71,7 @@ Reviewed remote heads:
 | `twitch-chat` | `ca8f90c` | Teammates' standalone chat application |
 | `main` | `b308d51` | Original project template |
 
-Privacy is structurally compatible with the shared SDK. A non-checkout merge preview found conflicts in `demo/main.gd` and `README.md`. This is a manageable integration task, not a verified successful merge.
+Privacy is structurally compatible with the shared SDK. A non-checkout merge preview found conflicts in `demo/main.gd` and `README.md`. Those conflicts have now been resolved on integration/streamer-mode, with joint functional checks passing.
 
 Use a dedicated integration branch based on the audio branch, preserve teammate history, resolve shared UI changes, and test before publishing a combined build. Do not replace whole files blindly or force-push teammates' branches. The chat branch removes the Godot project in its own history, so it should not be merged wholesale into the SDK.
 
@@ -141,8 +141,11 @@ A possible future model is a free core addon with paid integration assistance, s
 - Reduces specific exposures; it cannot guarantee prevention of stream sniping or copyright claims.
 - Safe music depends on supplied tracks and usage rights; the SDK does not certify licenses.
 - Automatic text patterns can miss secrets or hide harmless text.
-- The combined feature build and independent real-game validation are unfinished.
+- Combined functional integration is complete; scanner performance, recording acceptance and independent real-game validation remain unfinished.
 - Chat remains a companion application with separate setup, not a completed single-switch integration.
 
 ## Suggested presentation pitch
-“Team XP Farmers is building a Streamer Mode SDK for Godot games. Developers connect private UI and music once; players enable a setting and keep playing. Our audio component already works in two project hosts, and our privacy branch adds masking with usable Copy controls. We are bringing them together and will validate the addon in an existing Godot game. Live chat is a separate companion. The core runs locally, keeping infrastructure costs low.”
+“Team XP Farmers is building a Streamer Mode SDK for Godot games. Developers connect private UI and music once; players enable a setting and keep playing. Our audio component already works in two project hosts, and our privacy branch adds masking with usable Copy controls. They now work together in both test hosts, and we will validate the addon in an existing Godot game. Live chat is a separate companion. The core runs locally, keeping infrastructure costs low.”
+
+## Integration update
+The shared settings-menu/privacy/audio milestone is implemented on integration/streamer-mode. Eleven functional suites pass. A forced 300-node scan measured about 34 ms against a 16 ms target; optimization and real-game performance acceptance remain open. A separately selectable strict performance gate retains that target.

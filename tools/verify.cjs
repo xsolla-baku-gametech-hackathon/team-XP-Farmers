@@ -35,7 +35,7 @@ function runChecked(executable, args, options = {}) {
 function verify(godot, options = {}) {
   const directory = options.directory || path.join(root, '.artifacts', 'verify-' + Date.now());
   fs.mkdirSync(directory, { recursive: true });
-  const report = { passed: false, suites: [], pending: ['privacy component integration', 'live Twitch integration', 'OBS recording and listening check'] };
+  const report = { passed: false, suites: [], pending: ['300-node scanner performance target (strict benchmark separate)', 'live Twitch integration', 'OBS recording and listening check'] };
   const save = () => fs.writeFileSync(path.join(directory, 'verification.json'), JSON.stringify(report, null, 2) + '\n');
   function stage(name, args, marker) {
     console.log('Checking ' + name + '...');
@@ -52,6 +52,10 @@ function verify(godot, options = {}) {
     stage('foundation', ['--headless', '--path', root, '--script', 'res://tests/test_foundation.gd'], 'Foundation checks: PASS');
     stage('audio', ['--headless', '--path', root, '--script', 'res://tests/audio/test_audio.gd'], 'Audio checks: PASS');
     stage('panel', ['--headless', '--path', root, '--script', 'res://tests/ui/test_panel.gd'], 'Panel checks: PASS');
+    for (const suffix of ['mask', 'engine', 'copy_field', 'engine_churn', 'control_panel', 'draw_tool', 'scan_accuracy']) {
+      stage('privacy-' + suffix, ['--headless', '--path', root, '--script', 'res://tests/privacy/test_privacy_' + suffix + '.gd'],
+        'Privacy ' + suffix.replaceAll('_', ' ') + ' checks: PASS');
+    }
     const independent = path.join(directory, 'signal-garden');
     runChecked(process.execPath, [path.join(root, 'tools', 'prepare_portability_demo.cjs'), independent], {
       log: path.join(directory, 'prepare.log'), marker: 'Verified unchanged addon files:',
@@ -60,7 +64,7 @@ function verify(godot, options = {}) {
     stage('independent-game', ['--headless', '--path', independent, '--script', 'res://check_integration.gd'], 'Independent project checks: PASS');
     report.passed = true;
     save();
-    console.log('All 4 reviewed suites passed. Report: ' + path.join(directory, 'verification.json'));
+    console.log('All 11 reviewed suites passed. Report: ' + path.join(directory, 'verification.json'));
     return { directory, report };
   } catch (error) {
     report.error = error.message;

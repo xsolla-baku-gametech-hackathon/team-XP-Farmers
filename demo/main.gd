@@ -13,6 +13,9 @@ var services: Node
 var arena: Control
 var settings_panel: StreamerModePanel
 var score_label: Label
+var settings_menu: PopupPanel
+var privacy_engine: PrivacyEngine
+var copy_field: PrivacyCopyField
 
 
 func _ready() -> void:
@@ -23,6 +26,11 @@ func _ready() -> void:
 	services.name = "DemoServices"
 	add_child(services)
 	services.setup(controller)
+	privacy_engine = PrivacyEngine.new()
+	add_child(privacy_engine)
+	privacy_engine.target_margin = 2.0
+	privacy_engine.setup(controller)
+	privacy_engine.set_mask_param("tint_amount", 1.0)
 	theme = _make_theme()
 	_build_ui()
 	controller.state_changed.connect(_refresh)
@@ -44,8 +52,11 @@ func _build_ui() -> void:
 	brand.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(brand)
 	brand.add_child(_label("XP FARMERS   /   GAME TECH LAB", 12, LIME))
-	brand.add_child(_label("Streamer Mode", 32))
-	header.add_child(_label("GODOT ADDON     •     DESKTOP DEMO", 12, MUTED))
+	brand.add_child(_label("Shard Run", 32))
+	var settings_button := Button.new()
+	settings_button.text = "Settings / Esc"
+	settings_button.pressed.connect(func(): set_menu_open(true))
+	header.add_child(settings_button)
 	var content := _row(26)
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	page.add_child(content)
@@ -80,32 +91,32 @@ func _build_ui() -> void:
 	lobby_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lobby_row.add_child(lobby_text)
 	lobby_text.add_child(_label("DEMO LOBBY   /   SAMPLE DATA", 11, MUTED))
-	lobby_text.add_child(_label("XP-4829", 24))
-	lobby_row.add_child(_label("Privacy + Copy\nAwaiting integration", 12, MUTED))
-	var sidebar := _column(14)
-	sidebar.custom_minimum_size.x = 350
-	content.add_child(sidebar)
-	sidebar.add_child(_label("02   /   STREAM CONTROLS", 12, MUTED))
+	copy_field = PrivacyCopyField.new()
+	copy_field.caption = "JOIN CODE"
+	copy_field.value = "XP-4829"
+	lobby_text.add_child(copy_field)
+	copy_field.bind(privacy_engine, &"lobby")
+	settings_menu = preload("res://addons/streamer_mode/ui/streamer_settings_menu.gd").new()
+	add_child(settings_menu)
 	settings_panel = SettingsPanel.instantiate()
 	settings_panel.bind(controller)
 	settings_panel.set_feature_available(Controller.AUDIO, services.has_audio())
-	sidebar.add_child(settings_panel)
-	var chat_card := _card()
-	chat_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	sidebar.add_child(chat_card)
-	var chat := _column(12)
-	chat_card.add_child(chat)
-	chat.add_child(_label("LIVE CHAT", 11, MUTED))
-	chat.add_child(_label("Not connected", 20))
-	var chat_detail := _label("The Twitch panel will live here.\nNo connection or messages are simulated.", 13, MUTED)
-	chat_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	chat.add_child(chat_detail)
-	page.add_child(_label("TEAM XP FARMERS     /     STREAMER MODE SDK                                       ESC  Toggle mode", 11, MUTED))
+	settings_panel.set_feature_available(Controller.PRIVACY, true)
+	settings_panel.set_feature_status(Controller.PRIVACY, "Private game UI concealed; Copy stays available.")
+	settings_menu.attach_panel(settings_panel)
+	settings_menu.visibility_changed.connect(func(): arena.set_process(not settings_menu.visible))
+	privacy_engine.set_scan_root(game)
+	page.add_child(_label("WASD / ARROWS  Move     |     ESC  Settings", 11, MUTED))
+
+func set_menu_open(open: bool) -> void:
+	settings_menu.set_open(open)
+	arena.set_process(not open)
+
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
-		controller.set_enabled(not controller.enabled)
+		set_menu_open(not settings_menu.visible)
 		get_viewport().set_input_as_handled()
 
 

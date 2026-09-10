@@ -16,7 +16,16 @@ func _run() -> void:
 	var music = game.integration.music
 	var player = music.get_node("ManagedMusic")
 	_check(player.stream == music.normal_stream and music.is_playing(), "Independent game's music starts normally")
+	_check(not game.settings_menu.visible, "Settings start hidden")
+	game.set_menu_open(true)
+	game._press_cell(0)
+	_check(game.moves == 0, "Settings block puzzle input")
 	game.panel.mode_button.button_pressed = true
+	game.set_menu_open(false)
+	_check(game.integration.controller.enabled, "Closing menu preserves protection")
+	await process_frame
+	await process_frame
+	_check(game.integration.privacy_engine.active_region_count() > 0, "Independent privacy integration works")
 	_check(player.stream == music.replacement_stream and music.is_playing(), "Copied panel switches copied audio component")
 	game._press_cell(0)
 	_check(game.moves == 1 and game.integration.click_sound.playing, "Independent gameplay and SFX work while protected")
