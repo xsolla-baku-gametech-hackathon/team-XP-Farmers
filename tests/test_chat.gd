@@ -11,9 +11,22 @@ func _run() -> void:
 	root.add_child(demo)
 	await process_frame
 	var chat = demo.chat
+	check(is_instance_valid(chat.chat_window), "Desktop host creates a separate chat window")
+	check(chat.overlay.get_parent() == chat.chat_window, "Chat renders in its own viewport")
+	check(chat.chat_window.force_native and chat.chat_window.always_on_top, "Chat floats outside the embedded game")
+	check(not chat.chat_window.popup_window and not chat.chat_window.transient, "App switching does not dismiss chat as a popup")
+	check(chat.chat_window.transparent and chat.chat_window.transparent_bg, "Native window preserves background transparency")
+	check(not chat.chat_window.visible, "Master off hides native window")
 	check(not chat.overlay.visible, "Master off hides chat")
 	demo.controller.set_enabled(true)
 	check(chat.overlay.visible, "Master on shows chat")
+	check(chat.chat_window.visible, "Master on shows native window")
+	chat.chat_window.content_scale_factor = 2.0
+	chat.overlay.set_panel_size(Vector2(320, 180))
+	check(chat.chat_window.size == Vector2i(640, 360), "HiDPI window uses physical pixels")
+	check(chat.overlay.size == Vector2(320, 180), "HiDPI content fits without clipping")
+	chat.chat_window.content_scale_factor = 1.0
+	chat.overlay.set_panel_size(Vector2(400, 260))
 	for provider in ["kick", "twitch", "youtube"]:
 		chat.client.disconnect_chat()
 		var snapshot := {"provider": provider, "state": "connected", "settings": {"enabled": true}, "messages": [{"id": "old", "author": "old", "text": "history"}]}
@@ -114,6 +127,7 @@ func _run() -> void:
 	check(demo.settings_panel.feature_options[&"privacy"].disabled, "Privacy not falsely advertised")
 	demo.settings_panel.feature_options[&"chat"].button_pressed = false
 	check(not chat.overlay.visible, "Common panel controls chat")
+	check(not chat.chat_window.visible, "Common panel hides the desktop window")
 	demo.settings_panel.feature_options[&"chat"].button_pressed = true
 	paused = true
 	await process_frame
@@ -128,11 +142,21 @@ func _run() -> void:
 	chat.client.accept_snapshot({"state": "connected", "settings": {"enabled": true}, "messages": []})
 	chat.client.accept_snapshot({"state": "connected", "settings": {"enabled": true}, "messages": [{"id": "reentry", "author": "Test", "text": "Re-entry fixture"}]})
 	check(chat.overlay.messages == ["Test: Re-entry fixture"], "Re-entry restores client subscription")
+	check(chat.overlay.get_parent() == chat.chat_window, "Re-entry retains the same desktop window")
 	check(chat.get_child_count() == 4, "Re-entry does not create duplicate components")
 	demo.controller.queue_free()
 	await process_frame
 	check(not chat.overlay.visible and not chat.client._active, "Controller removal disables chat")
+	check(not chat.chat_window.visible, "Controller removal hides native window")
 	demo.queue_free()
+	await process_frame
+	var embedded = load("res://addons/streamer_mode/chat/streamer_chat.gd").new()
+	embedded.desktop_overlay = false
+	root.add_child(embedded)
+	await process_frame
+	check(not is_instance_valid(embedded.chat_window), "Host can retain in-game-only mode")
+	check(embedded.overlay.get_parent() == embedded, "In-game fallback keeps the original canvas hierarchy")
+	embedded.queue_free()
 	await process_frame
 	print("Godot chat checks: ", "PASS" if failures == 0 else "FAIL")
 	quit(1 if failures else 0)

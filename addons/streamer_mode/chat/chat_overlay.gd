@@ -1,6 +1,6 @@
 class_name StreamerChatOverlay
 extends Control
-## In-game chat with usernames and an adjustable black background.
+## Chat with usernames and an adjustable black background.
 ## Scroll to read history, Alt-drag to move, drag the corner to resize.
 
 @export_range(1, 100) var max_messages: int = 30
@@ -10,6 +10,7 @@ extends Control
 		background_opacity = clampf(value, 0.0, 1.0)
 		if is_instance_valid(_background):
 			_background.color = Color(0, 0, 0, background_opacity)
+var desktop_window: Window
 var messages: Array[String] = []
 var _background: ColorRect
 var _controller: StreamerModeController
@@ -140,12 +141,21 @@ func _restore_scroll(follow: bool, old_value: float) -> void:
 
 
 func set_panel_size(value: Vector2) -> void:
-	panel_size = value.max(Vector2(240, 140)).min(get_viewport_rect().size)
+	if is_instance_valid(desktop_window):
+		var ui_scale := desktop_window.content_scale_factor
+		panel_size = value.max(Vector2(240, 140)).min(Vector2(_screen_rect().size - Vector2i(40, 40)) / ui_scale)
+		desktop_window.size = Vector2i(panel_size * ui_scale)
+	else:
+		panel_size = value.max(Vector2(240, 140)).min(get_viewport_rect().size)
 	_clamp_position()
 
 
 func _on_resize_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		if is_instance_valid(desktop_window):
+			DisplayServer.window_start_resize(DisplayServer.WINDOW_EDGE_BOTTOM_RIGHT, desktop_window.get_window_id())
+			_resize_handle.accept_event()
+			return
 		_resizing = true
 		_dragging = false
 		_resize_start = get_global_mouse_position()
@@ -153,12 +163,30 @@ func _on_resize_input(event: InputEvent) -> void:
 		_resize_handle.accept_event()
 
 
+func _screen_rect() -> Rect2i:
+	var area := DisplayServer.screen_get_usable_rect(desktop_window.current_screen)
+	if area.size.x <= 0 or area.size.y <= 0:
+		area = Rect2i(Vector2i.ZERO, Vector2i(1280, 800))
+	return area
+
+
 func reset_position() -> void:
+	if is_instance_valid(desktop_window):
+		var area := _screen_rect()
+		desktop_window.max_size = area.size - Vector2i(40, 40)
+		desktop_window.position = area.end - desktop_window.size - Vector2i(20, 20)
+		_clamp_position()
+		return
 	position = get_viewport_rect().size - size - Vector2(20, 20)
 	_clamp_position()
 
 
 func _clamp_position() -> void:
+	if is_instance_valid(desktop_window):
+		position = Vector2.ZERO
+		size = desktop_window.get_visible_rect().size
+		panel_size = size
+		return
 	size = panel_size.max(Vector2(240, 140)).min(get_viewport_rect().size)
 	position = position.clamp(Vector2.ZERO, (get_viewport_rect().size - size).max(Vector2.ZERO))
 
@@ -178,6 +206,10 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed and event.alt_pressed and get_global_rect().has_point(get_global_mouse_position()):
+			if is_instance_valid(desktop_window):
+				DisplayServer.window_start_drag(desktop_window.get_window_id())
+				get_viewport().set_input_as_handled()
+				return
 			_dragging = true
 			_drag_offset = get_global_mouse_position() - global_position
 			get_viewport().set_input_as_handled()
@@ -195,6 +227,8 @@ func _input(event: InputEvent) -> void:
 
 func _sync() -> void:
 	visible = is_instance_valid(_controller) and _controller.is_feature_active(StreamerModeController.CHAT)
+	if is_instance_valid(desktop_window):
+		desktop_window.visible = visible
 	if not visible:
 		_dragging = false
 		_resizing = false

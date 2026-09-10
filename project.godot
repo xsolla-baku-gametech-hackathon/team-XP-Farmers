@@ -8,6 +8,7 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://demo/icon.svg"
 
 [display]
+window/per_pixel_transparency/allowed=true
 window/size/viewport_width=1280
 window/size/viewport_height=800
 window/size/window_width_override=1280

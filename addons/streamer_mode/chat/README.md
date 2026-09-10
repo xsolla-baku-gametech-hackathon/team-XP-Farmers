@@ -1,7 +1,7 @@
 # Godot chat integration
 
 `StreamerChat` is a native CanvasLayer containing settings, a read-only HTTP
-client, and a transparent chat Control. Bind the game's existing
+client, and a transparent chat Control in a native always-on-top Window on desktop. Bind the game's existing
 `StreamerModeController`; do not create a second controller for chat.
 
 - `bind(controller)` (also available as `bind_controller(controller)`) works before or after adding to the scene tree.
@@ -33,7 +33,7 @@ server integration dependency, not a separate streamer desktop application.
 composes them. Settings contain no duplicate master or feature switches.
 `demo/demo_services.gd` installs chat and forwards status; `demo/main.gd` uses
 `ui/streamer_mode_panel.tscn` for all three feature slots, matching the audio demo.
-The UI files are copied unchanged from audio commit `0fbc00f`; no audio/privacy
+The UI structure comes from audio commit `0fbc00f` with a platform-neutral chat label; no audio/privacy
 implementation or branch history was merged. The shared controller is unchanged.
 
 Keep StreamerChat and its controller under a persistent host root when changing
@@ -76,6 +76,29 @@ apply. Disconnecting or switching channels clears history. Scroll inside the cha
 panel to read older messages. Repeated snapshots preserve your reading position;
 new messages follow automatically only when you are already at the bottom.
 
-Drag the bottom-right corner to resize (minimum 240 × 140, bounded by viewport),
-or call `overlay.set_panel_size(Vector2(width, height))`. Alt-drag moves the panel.
+Drag the bottom-right corner to resize (minimum 240 × 140, bounded by the screen in desktop mode),
+or call `overlay.set_panel_size(Vector2(width, height))`. Option-drag on macOS, or Alt-drag elsewhere, moves the panel.
 Size and position stay in memory through mode toggles, not application restarts.
+
+
+## Desktop overlay
+
+Desktop builds default to `desktop_overlay = true`. The chat lives in a separate,
+non-modal, borderless native Window (`force_native`, `always_on_top`), so it is not
+clipped to the game or dismissed when another application is focused. The window
+cannot take keyboard focus, while its scrollbar and resize handle accept mouse
+input. Window movement and resizing use native OS drag operations. Master/feature
+toggles hide this same window without destroying its message buffer. Closing the
+host application closes chat as well; the relay alone does not display it.
+
+Set `display/window/per_pixel_transparency/allowed = true` in the host project
+before launching (already set in this demo). Set `desktop_overlay = false` before
+adding StreamerChat to keep rendering inside the game; non-desktop exports also
+use the in-game Control. Use a screen/display capture to include this separate
+window in a broadcast; a capture of only the game window may omit it.
+
+Always-on-top covers ordinary windows on the current desktop. macOS fullscreen
+Spaces, switching desktops, and exclusive fullscreen applications are not
+promised by this implementation. Native GUI validation is still needed for each
+supported OS; headless tests validate composition, visibility, history and sizing,
+not the compositor's actual stacking behavior.

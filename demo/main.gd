@@ -34,6 +34,8 @@ func _ready() -> void:
 
 
 func _place_chat() -> void:
+	if is_instance_valid(services.chat.chat_window):
+		return
 	services.chat.overlay.position = arena.global_position + Vector2(16, 16)
 	services.chat.overlay._clamp_position()
 
