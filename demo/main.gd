@@ -3,7 +3,7 @@ extends Control
 const Controller = preload("res://addons/streamer_mode/core/streamer_mode_controller.gd")
 const Arena = preload("res://demo/arena.gd")
 const Services = preload("res://demo/demo_services.gd")
-const PrivacyMask = preload("res://addons/streamer_mode/privacy/privacy_mask.gd")
+const PrivacyEngine = preload("res://addons/streamer_mode/privacy/privacy_engine.gd")
 const INK := Color("e6edf0")
 const MUTED := Color("8fa4b0")
 const LIME := Color("b4ee93")
@@ -20,7 +20,7 @@ var privacy_label: Label
 var score_label: Label
 var lobby_card: PanelContainer
 var lobby_status: Label
-var privacy_mask: PrivacyMask
+var privacy_engine: PrivacyEngine
 
 
 func _ready() -> void:
@@ -33,11 +33,15 @@ func _ready() -> void:
 	services.setup(controller)
 	theme = _make_theme()
 	_build_ui()
-	privacy_mask = PrivacyMask.new()
-	privacy_mask.name = "PrivacyMask"
-	add_child(privacy_mask)
-	privacy_mask.setup(controller)
-	privacy_mask.cover_node(lobby_card)
+	privacy_engine = PrivacyEngine.new()
+	privacy_engine.name = "PrivacyEngine"
+	add_child(privacy_engine)
+	privacy_engine.setup(controller)
+	# Strategy B: the sample lobby card is always private while masking is on.
+	privacy_engine.register_node(&"lobby", lobby_card, {"pixel_size": 18.0})
+	# Strategy A: scan the demo UI for codes and IPs (finds the match-server line).
+	privacy_engine.set_scan_root(self)
+	privacy_engine.set_scanning(true)
 	controller.state_changed.connect(_refresh)
 	services.audio_status_changed.connect(func(_message: String): _refresh())
 	_refresh()
@@ -96,6 +100,7 @@ func _build_ui() -> void:
 	lobby_text.add_child(_label("XP-4829", 24))
 	lobby_status = _label("Privacy + Copy\nVisible on stream", 12, MUTED)
 	lobby_row.add_child(lobby_status)
+	game.add_child(_label("MATCH SERVER   203.0.113.42:7777", 11, MUTED))
 	var sidebar := _column(14)
 	sidebar.custom_minimum_size.x = 350
 	content.add_child(sidebar)
