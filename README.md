@@ -1,49 +1,70 @@
-# Xsolla Baku GameTech Hackathon
+﻿# Streamer Mode SDK
 
-Welcome! This repository is the starting template for teams participating in the **Xsolla Baku GameTech Hackathon** (September 9–11).
+A reusable Godot addon that gives developers one switch for streamer features,
+with a small playable game to demonstrate integration. Built by Team XP Farmers
+for the Xsolla Baku GameTech Hackathon.
 
-## About the Hackathon
+## Run
 
-Xsolla Baku is organizing a GameTech Hackathon to introduce Azerbaijan's developer community to the gametech industry and give developers a chance to build real prototype solutions.
+1. Use **Godot 4.7.2 standard**, with GDScript (no .NET required).
+2. Import `project.godot` in the Godot Project Manager.
+3. Press **F5**. Move using WASD or arrow keys and collect green shards.
+4. Click the Streamer Mode button or press Escape to change the shared state.
 
-- **Sept 9** — Workshops: Xsolla team members introduce industry solutions and challenges across different gametech areas.
-- **Sept 10–11** — Build days: teams design and build a prototype solution, then present it to the jury.
+The project uses the Compatibility renderer and no external packages or plugins.
+No Twitch account is needed for the foundation demo.
 
-## How to Use This Template
+## Current milestone
 
-1. Click **"Use this template"** at the top of this repo (not "Fork").
-2. Name your new repo `team-yourteamname` — use the same team name you registered with, so it's easy to match against the participant list.
-3. Set your new repo to **Public**.
-4. Add your teammates as collaborators (or ask the organizers to add them — you'll need to have submitted GitHub profile links during registration).
-5. Start building! Commit early and often — your commit history is part of how the project is evaluated.
+- Playable 2D collection arena and Streamer Mode panel.
+- Reusable controller with master toggle, feature preferences, and signals.
+- Explicit integration points for audio, privacy and Twitch chat.
+- Automated controller and demo wiring checks.
 
-## Judging Categories
+Privacy, music replacement and chat are not implemented on the foundation branch.
+Their controls are labeled as pending; the sample lobby code is fictional.
 
-| Category | What it means |
-|---|---|
-| **Best Project** | Overall strongest execution and prototype quality |
-| **Best Idea** | Most original/impactful concept |
-| **Best Code** | Code quality, structure, readability |
-| **Most GitHub Commits** | Team repo with the most commits as of the end of Sept 11 |
+## Product scope
 
-## Ground Rules
+A game developer integrates this addon into a Godot project. They identify private
+UI, supply appropriately licensed replacement music, and configure Twitch access.
+Both the player and viewers receive the same modified interface and audio.
+This is not an automatic overlay for arbitrary installed games. It reduces
+specific exposures; it cannot guarantee freedom from copyright claims or stream
+sniping. Separate engine adapters would be needed for Unity and Unreal.
 
-- All work must happen in your team's public repo on this GitHub organization.
-- Development happens during the official build window (Sept 10–11). Work done before or after this window may not count toward judging.
-- Keep commits meaningful — commit history should reflect real progress, not artificially inflate commit counts. As a reference, consider following [Semantic Commit Messages](https://gist.github.com/joshbuchea/6f47e86d2510bce28f8e7f42ae84c716) conventions for clear, structured commit messages.
-- No confidential or proprietary Xsolla data may be used or shared in your project.
-- Be respectful and collaborative — see [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
+## Addon integration
 
-## Submission Checklist
+Copy `addons/streamer_mode/` into another Godot project. Create a Node with
+`core/streamer_mode_controller.gd` attached. Pass that controller to feature
+components; connect the game's settings to `set_enabled(bool)`. No autoload or
+editor plugin is required. The addon has no dependency on `demo/`.
 
-- [ ] Repo is public and named `team-yourteamname`
-- [ ] README explains what your project does and how to run it
-- [ ] All teammates are added as collaborators
-- [ ] Final commit made before the Sept 11 deadline
-- [ ] Presentation prepared for the jury
+See [team workflow and public API](docs/TEAM_WORKFLOW.md) for branch ownership,
+component contracts and how to start feature work. Each feature folder includes
+its handoff notes. Use standalone feature scenes before editing the shared demo.
 
-## Questions?
+## Checks
 
-The Google Developers Group (GDG) team will be coordinating and supporting teams throughout the hackathon — reach out to them in person during the event, or through whatever channel is shared with participants at kickoff.
+Replace `godot` with the path to your Godot console executable if needed:
 
-Good luck, and have fun building! 🎮
+```sh
+godot --headless --path . --editor --import --quit
+godot --headless --path . --script res://tests/test_foundation.gd
+```
+
+Optional screenshots (requires a graphical session):
+
+```sh
+godot --path . --script res://tests/capture_demo.gd
+```
+
+Screenshots go to the ignored `.artifacts/` folder. Commit source and `.uid`
+files, not `.godot/` caches, exports, account credentials or access tokens.
+
+## Demo completion criteria
+
+One toggle must activate integrated features: switch managed music while keeping
+sound effects, conceal private text while preserving Copy, and show actual Twitch
+chat. Verify a real OBS recording and then integrate the addon into a second
+small project. These are upcoming milestones, not foundation capabilities.

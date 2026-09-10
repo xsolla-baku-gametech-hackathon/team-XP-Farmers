@@ -1,33 +1,23 @@
-; Engine configuration file.
-; It's best edited using the editor UI and not directly,
-; since the parameters that go here are not all obvious.
-;
-; Format:
-;   [section] ; section goes between []
-;   param=value ; assign values to parameters
-
+; Import this file in Godot's Project Manager.
 config_version=5
 
 [application]
-
-config/name="PrivacyMask"
-run/main_scene="uid://bx8y7v80uk5h0"
-config/features=PackedStringArray("4.7", "Forward Plus")
-config/icon="res://icon.svg"
+config/name="Streamer Mode · XP Farmers"
+run/main_scene="res://demo/main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://demo/icon.svg"
 
 [display]
-
-window/size/borderless=true
-window/size/always_on_top=true
-window/size/transparent=true
+window/size/viewport_width=1280
+window/size/viewport_height=800
+window/size/window_width_override=1280
+window/size/window_height_override=800
+window/size/min_width=1000
+window/size/min_height=680
 window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
-window/per_pixel_transparency/allowed=true
-
-[physics]
-
-3d/physics_engine="Jolt Physics"
 
 [rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.035, 0.055, 0.075, 1)
 
-rendering_device/driver.windows="d3d12"
