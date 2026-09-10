@@ -1,33 +1,37 @@
 # Team workflow
 
-The `twitch-chat` branch now contains the standalone Chat Studio product. Godot
-scenes, addon scripts and the playable engine demo were removed from this branch
-at the product owner's request. Other feature branches retain their history.
+`twitch-chat` now restores Godot and supplies an in-game chat addon. No branches
+have been merged. Do not merge until the product owner explicitly requests it.
 
-Do not merge this migration until the product owner asks. Do not force-push shared
-branches. Review engine removal explicitly with the owners of `privacy-mask-copy`,
-`stream-safe-audio` and `godot-sdk-foundation`: their Godot adapters cannot be wired
-directly into a browser overlay.
+The shared foundation files were restored from common ancestor `c79fda9`.
+`StreamerModeController`, `demo/main.gd`, `demo/demo_services.gd` and the arena retain
+that foundation's implementation. The new default scene is
+`demo/chat_integration.tscn`, a runnable chat integration example. Original
+`demo/main.tscn` remains available for foundation regression checks.
 
-## Modules
+## Later integration with audio/privacy
 
-| Path | Responsibility |
-| --- | --- |
-| `public/` | Browser studio and transparent desktop overlay; literal message rendering |
-| `desktop/` | Windows/macOS companion, transparent click-through native window and desktop packaging |
-| `server/app.mjs` | Session isolation, OAuth callbacks, settings and overlay endpoints |
-| `server/providers/` | Official Kick, Twitch and YouTube provider adapters |
-| `server/storage.mjs` | Encrypted, single-process session persistence |
-| `tests/` | Node built-in tests with mocked provider traffic |
+Review and combine features only when authorized. Restore no desktop companion.
+Keep one controller, instantiate `StreamerChat`, and bind it to that controller.
+The chat addon does not depend on either feature branch. When using audio's
+`StreamerModePanel`, call `set_feature_available(Controller.CHAT, true)` and route
+`chat.status_changed` to `set_feature_status(Controller.CHAT, detail)`. Add a Chat
+settings button wired to `chat.open_settings()`. Keep the chosen final game's
+main scene when resolving the root `project.godot` main-scene setting.
 
-Run `node --test tests/*.test.mjs` before pushing. Keep app keys in a local `.env`
-or managed server secrets. Never commit credentials, runtime data, overlay links,
-OAuth query strings, local screenshots or development fixtures.
+The default chat demo pauses movement while its settings panel is open; the
+reusable addon leaves gameplay/pause control to its host. Test master mode,
+individual preferences, closing settings, masking, audio switching and new chat
+messages together before merging. This branch does not claim those combined
+features have been runtime-tested.
 
-Browser verification should include studio load, connection failure feedback,
-opacity 0/35/100 with opaque text, each corner, mode off/on, reload persistence,
-desktop launch/manual paste, copy/open/replace link, disconnect, Unicode usernames, literal HTML-like chat text,
-mobile layout and an isolated desktop overlay context with no owner cookie.
+## Ownership
 
-Live release acceptance is documented in `DEPLOYMENT.md`. This migration does not
-implement the other branches' privacy or audio features.
+- `addons/streamer_mode/chat/`: native Godot chat UI/client.
+- `addons/streamer_mode/core/`: shared mode state.
+- `server/`: platform OAuth, subscriptions, encrypted sessions, read-only chat API.
+- `public/`: browser account connection and relay preview.
+- `tests/`: Godot regression tests and Node provider tests.
+
+Never commit provider keys, private chat links, OAuth callbacks or runtime data.
+See README for automated checks and DEPLOYMENT for live acceptance.

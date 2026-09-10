@@ -1,0 +1,22 @@
+; Import this file in Godot's Project Manager.
+config_version=5
+
+[application]
+config/name="Streamer Mode · XP Farmers"
+run/main_scene="res://demo/chat_integration.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://demo/icon.svg"
+
+[display]
+window/size/viewport_width=1280
+window/size/viewport_height=800
+window/size/window_width_override=1280
+window/size/window_height_override=800
+window/size/min_width=1000
+window/size/min_height=680
+window/stretch/mode="canvas_items"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.035, 0.055, 0.075, 1)

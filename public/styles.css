@@ -595,9 +595,3 @@ html:has(.overlay-page) {
     animation:none!important;
   }
 }
-
-.desktop-launch { display:flex; align-items:center; gap:16px; margin-bottom:20px; }
-.desktop-launch .primary { display:inline-flex; align-items:center; justify-content:center; white-space:nowrap; text-decoration:none; }
-.desktop-launch .caption { margin:0; }
-#show-desktop[aria-disabled=true] { opacity:.45; pointer-events:none; }
-@media(max-width:680px) { .desktop-launch { align-items:flex-start; flex-direction:column; gap:10px; } }

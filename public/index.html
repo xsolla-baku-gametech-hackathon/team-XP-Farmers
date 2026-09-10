@@ -9,7 +9,7 @@
 <body>
   <header class="topbar"><a class="brand" href="/"><span>XP</span> Farmers</a><span>Chat studio</span></header>
   <main class="studio">
-    <div class="intro"><h1>Your chat. On stream.</h1><p>Connect your channel, shape your overlay, and go live.</p></div>
+    <div class="intro"><h1>Your chat. On stream.</h1><p>Connect your channel to your Godot game.</p></div>
     <div class="workspace">
       <section class="controls surface" aria-label="Channel and appearance settings">
         <h2>Connection</h2>
@@ -35,13 +35,13 @@
         <p class="caption" id="preview-caption">Sample messages only. Your live chat appears after connection.</p>
       </section>
     </div>
-    <section class="broadcast surface" aria-label="Streamer Mode and desktop overlay">
-      <div class="mode-row"><div><h2>Streamer Mode</h2><p>Show your live chat above your game.</p></div><button class="switch" id="mode" type="button" role="switch" aria-label="Streamer Mode" aria-checked="true"><span></span></button></div>
+    <section class="broadcast surface" aria-label="Godot chat connection">
+      <div class="mode-row"><div><h2>Chat delivery</h2><p>Enable chat delivery to your Godot game.</p></div><button class="switch" id="mode" type="button" role="switch" aria-label="Chat delivery" aria-checked="true"><span></span></button></div>
       <hr>
-      <div class="desktop-launch"><a id="show-desktop" class="primary" aria-disabled="true">Show on screen</a><p class="caption">Requires XP Farmers Chat desktop app. Choose your display and start the overlay there.</p></div>
+
       <label class="obs-label" for="overlay-url">Private overlay link</label>
       <div class="link-row"><input id="overlay-url" readonly placeholder="Connect a channel to create your overlay link" aria-describedby="obs-help"><button id="copy" class="secondary" type="button" disabled>Copy link</button><a id="open-overlay" aria-disabled="true" target="_blank" rel="noreferrer noopener">Browser preview</a></div>
-      <p id="obs-help" class="caption">If the desktop app does not open, paste this link into its “Private overlay link” field.</p>
+      <p id="obs-help" class="caption">In your Godot game, open Settings → Streamer Mode and paste this private link into the chat connection field.</p>
       <div class="link-tools" id="link-tools" hidden><p class="caption">Keep this link private. Anyone with it can view this overlay.</p><button id="rotate" class="text-button" type="button">Replace overlay link</button></div>
       <p id="copy-status" class="caption" role="status"></p>
     </section>

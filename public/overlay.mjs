@@ -13,7 +13,7 @@ async function poll() {
     renderChat(panel, stage, data.state === 'connected' ? data.messages : [], data.settings);
     failures = 0;
   } catch {
-    // A desktop overlay must never show login forms, sample messages or error chrome.
+    // A read-only preview must never show login forms, sample messages or error chrome.
     panel.hidden = true; panel.replaceChildren(); delete panel.dataset.signature; failures++;
   }
   setTimeout(poll, Math.min(10000, 1000 * 2 ** Math.min(failures, 4)));

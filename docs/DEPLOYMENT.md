@@ -93,7 +93,7 @@ Run `node server/index.mjs` with a supervisor and HTTPS in front of it.
 
 Sign-in uses an HttpOnly SameSite=Lax cookie with Secure enabled under HTTPS.
 Streamers must return through the same browser used to start sign-in. Studio and
-overlay use the same origin, but the desktop overlay uses a cookie-free read-only connection.
+overlay use the same origin, but the Godot client uses a cookie-free read-only connection.
 Keep overlay links private; replace a link if exposed.
 
 ## Live acceptance before release
@@ -102,12 +102,12 @@ Keep overlay links private; replace a link if exposed.
    browser profiles. Verify consent, callback and connected status.
 2. Send a real viewer message. Confirm the username/content appears only in the
    correct studio and overlay. Include Unicode and a long message.
-3. Open the desktop app through **Show on screen** (and test manual paste).
-   Choose a display and start the overlay. Put a borderless game or another app
-   behind it. Check click-through behavior, opacity 0/35/100% and opaque text.
-4. Change position, font size and Streamer Mode. Confirm the desktop overlay follows. Turning
-   mode on again must not replay messages received while off.
-5. Close the studio tab, keep the desktop app running and send another message.
+3. Run the Godot demo and paste the private link in Settings → Streamer Mode.
+   Enable master mode and chat; send a new message after the first snapshot.
+   Check background opacity 0/35/100%, opaque text and Alt-drag positioning.
+4. Toggle the game's master mode and individual chat preference. Closing settings
+   must leave chat enabled; enabling again must not replay old messages.
+5. Close the browser tab, keep the game running and send another message.
 6. On Twitch, delete a message, clear a user's messages and clear chat. Confirm
    the overlay follows. On YouTube, test viewer bans and message deletions when
    delivered by the API. Kick moderation deletion is not yet implemented.
@@ -121,52 +121,19 @@ Keep overlay links private; replace a link if exposed.
 10. On YouTube, connect before going live; confirm waiting → live chat → waiting
     → next broadcast. Check no old chat reappears after mode off/on, restart or
     stream changes. Verify quota exhaustion, revoked consent and token refresh.
-11. Check the overlay on each supported operating system, monitor arrangement and
-    target game. If viewers should see it, record a clip using your actual
+11. Check the overlay on each supported operating system, target Godot game. If viewers should see it, record a clip using your actual
     broadcasting platform and display-capture setup.
 
 Automated tests mock platform traffic. Real-account OAuth, delivery, rate limits,
-token expiry during a full broadcast and desktop/game compatibility and broadcast capture remain live release checks.
+token expiry during a full broadcast and Godot integration and broadcast capture remain live release checks.
 Do not advertise these as certified until completed.
 
-## Desktop distribution
+## Godot distribution
 
-The desktop companion lives in `desktop/`, with its own pinned npm lockfile. It
-contains no provider credentials or server code. Install dependencies there with
-`npm ci`, use `npm start` during development and `npm run dist` to package it.
-The separate desktop workflow builds Windows x64 NSIS and macOS ARM64/x64 ZIP
-artifacts. It does not create a GitHub Release, publish an installer, or merge.
-
-Packaged applications register `xp-farmers-chat://`. The studio's **Show on screen**
-link opens the app and fills its private overlay URL; the streamer chooses the
-display and starts the overlay. Copy/paste is the fallback when the browser blocks
-URL launching or when testing an unpackaged app. Never place provider client
-secrets in a desktop distribution. OAuth happens in the streamer's normal browser.
-
-The overlay is frameless, transparent, non-focusable, always-on-top and ignores
-mouse events. It displays one selected monitor and follows monitor changes. The
-controls remain accessible through the taskbar/Dock; closing controls while the
-overlay is active minimizes them. **Stop overlay** destroys the local window;
-quitting the desktop application also stops it. The private URL is kept in memory
-only. A URL rotation requires opening the new link in the desktop app.
-
-Remote overlay content has no Node.js integration or preload bridge and runs in a
-sandboxed, isolated, memory-only session. It cannot open windows, navigate to another
-page, request device permissions or download files. Desktop IPC is available only
-to the local control page. Only HTTPS origins, or HTTP localhost for development,
-and the exact `/overlay#KEY` shape are accepted.
-
-CI artifacts are unsigned development packages. Configure Windows code signing
-and macOS Developer ID signing/notarization through CI secrets for customer-ready
-installers. Do not instruct customers to bypass platform security warnings.
-The Node service still needs an HTTPS deployment and configured platform apps.
-
-Validate Windows and macOS on real machines. Use borderless/windowed games;
-exclusive fullscreen, secure desktops and game restrictions can hide overlays.
-The desktop client is not a streaming encoder: broadcasting chat to viewers
-requires your platform's screen capture to include this desktop overlay.
-Linux packaging is available locally but is not certified; Wayland may prevent
-programmatic placement and always-on-top behavior.
+Distribute the chat addon as part of the participating Godot game. No standalone
+chat desktop installer is required. The game owner integrates the shared controller
+and chat settings; streamers authorize their channel in the relay's browser page
+and paste the private link into the game. See the root README for instructions.
 
 ## Commercial scope
 

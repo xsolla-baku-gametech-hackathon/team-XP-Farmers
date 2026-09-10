@@ -24,8 +24,8 @@ function paint() {
   $('font-size').value = settings.fontSize; $('position').value = settings.position;
   $('mode').setAttribute('aria-checked', String(settings.enabled));
   const connected = session?.state === 'connected';
-  $('preview-label').textContent = !settings.enabled ? 'Streamer Mode off' : session ? (connected ? 'Live chat' : session.state === 'waiting' ? 'Waiting for live stream' : 'Waiting for connection') : 'Sample preview';
-  $('preview-caption').textContent = !settings.enabled ? 'Your overlay is hidden. Turn on Streamer Mode to show new messages.' : session
+  $('preview-label').textContent = !settings.enabled ? 'Chat delivery off' : session ? (connected ? 'Live chat' : session.state === 'waiting' ? 'Waiting for live stream' : 'Waiting for connection') : 'Sample preview';
+  $('preview-caption').textContent = !settings.enabled ? 'Your overlay is hidden. Turn on chat delivery to send new messages to your game.' : session
     ? (connected ? 'Live messages from your channel. Each message includes the sender’s username.' : 'Your overlay stays clear until the channel is connected.')
     : 'Sample messages only. Your live chat appears after connection.';
   renderChat($('preview-chat'), $('preview-canvas'), session ? (connected ? session.messages : []) : samples, settings);
@@ -34,11 +34,6 @@ function paint() {
   for (const id of ['opacity', 'font-size', 'position', 'mode']) $(id).disabled = busy;
   $('open-overlay').setAttribute('aria-disabled', String(!url));
   if (url) $('open-overlay').href = url; else $('open-overlay').removeAttribute('href');
-  $('show-desktop').setAttribute('aria-disabled', String(!url));
-  if (url) {
-    const address = new URL(url);
-    $('show-desktop').href = `xp-farmers-chat://overlay?${new URLSearchParams({ origin: address.origin })}${address.hash}`;
-  } else $('show-desktop').removeAttribute('href');
   $('link-tools').hidden = !url;
 }
 async function refresh() {
@@ -93,14 +88,14 @@ $('font-size').addEventListener('change', e => change({ fontSize: Number(e.targe
 $('position').addEventListener('change', e => change({ position: e.target.value }));
 $('mode').addEventListener('click', () => change({ enabled: !settings.enabled }));
 $('copy').addEventListener('click', async () => {
-  try { await navigator.clipboard.writeText($('overlay-url').value); $('copy-status').textContent = 'Overlay link copied. Paste it into XP Farmers Chat to show chat on your screen.'; }
+  try { await navigator.clipboard.writeText($('overlay-url').value); $('copy-status').textContent = 'Overlay link copied. Paste it into your Godot game’s Streamer Mode chat settings.'; }
   catch { $('overlay-url').focus(); $('overlay-url').select(); $('copy-status').textContent = 'Select and copy the link above with Ctrl+C or Command+C.'; }
 });
 $('rotate').addEventListener('click', async () => {
   busy = true; generation++; error(); paint();
   try {
     session = await request('/api/overlay/rotate', { method: 'POST' });
-    $('copy-status').textContent = 'New link created. Click Show on screen, or paste the new link into the desktop app.';
+    $('copy-status').textContent = 'New link created. Paste the new link into your Godot game’s chat settings.';
   } catch (failure) { error(failure.message); }
   finally { busy = false; paint(); }
 });

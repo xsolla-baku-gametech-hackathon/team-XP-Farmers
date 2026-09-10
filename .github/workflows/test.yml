@@ -32,3 +32,20 @@ jobs:
           }
           trap cleanup EXIT
           curl --fail --retry 10 --retry-all-errors --retry-delay 1 --connect-timeout 2 --max-time 5 http://127.0.0.1:8787/health
+
+  godot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Godot 4.7.2
+        run: |
+          curl --fail --location --retry 3 --output /tmp/godot.zip https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          sudo install /tmp/godot/Godot_v4.7.2-stable_linux.x86_64 /usr/local/bin/godot
+      - run: godot --headless --editor --import --quit
+      - run: godot --headless --script tests/test_foundation.gd
+      - run: godot --headless --script tests/test_chat.gd
+      - run: node tests/godot_relay.mjs

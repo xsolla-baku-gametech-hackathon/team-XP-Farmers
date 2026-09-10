@@ -1,172 +1,76 @@
-# XP Farmers — Chat Studio
+# XP Farmers · Godot Streamer Mode
 
-Standalone **Kick + Twitch + YouTube live chat overlay** for streamers. Open Chat Studio,
-connect your own channel, enable **Streamer Mode**, and show chat directly above
-your games with the **XP Farmers Chat desktop app**. OBS and Godot are not required.
+`twitch-chat` provides **in-game chat for Godot games**, using the shared
+`StreamerModeController`. Twitch, Kick and YouTube connect through a Node relay.
+There is no Electron companion or OBS dependency. No feature branches have been merged.
 
-This `twitch-chat` branch replaces the previous Godot addon. It has **not been
-merged** into `main` or the other feature branches.
+## Run the Godot demo
 
-## Run the studio locally
+1. Check out `twitch-chat` and import root `project.godot` in Godot 4.7.2.
+2. Press F5. The playable demo opens its **Settings → Streamer Mode** panel.
+3. Connect your channel through the relay browser page (setup below), copy the
+   private chat link, and paste it into the game's chat field. Click **Connect chat**.
+4. Enable **Streamer Mode** and **In-game chat**, then select **Back to game**.
+   New messages appear with usernames. WASD/arrows move; Escape opens settings.
+5. Adjust background opacity in the game. Alt + drag moves chat. Closing settings
+   preserves Streamer Mode. Turning off master mode or chat clears/hides messages.
 
-Install Node.js 22 or newer, then run from the repository root:
+The first snapshot after connection/enabling is discarded to avoid replaying history.
+Only subsequent messages are displayed. Moderation removals update the panel too.
+No sample messages are injected into the game. A real channel and running relay
+are required for live delivery. The browser is for account authorization and relay
+setup; the actual game renders chat with native Godot controls.
 
-```sh
-node server/index.mjs
+## Add to another Godot game
+
+Copy `addons/streamer_mode/`, instantiate `chat/streamer_chat.tscn`, and bind the
+**same controller** used by audio/privacy:
+
+```gdscript
+var chat = preload("res://addons/streamer_mode/chat/streamer_chat.tscn").instantiate()
+chat.bind_controller(streamer_mode_controller)
+add_child(chat)
+# Your Settings → Streamer Mode → Chat button:
+chat.open_settings()
 ```
 
-Open **http://localhost:8787**. The studio works immediately with clearly labeled
-sample messages for styling. Live connections require the service owner's provider
-configuration below. The server has no npm dependencies or frontend build steps.
-The optional browser preview stays in a browser window; use the desktop app for
-a transparent, always-on-top overlay.
+The addon never reads gameplay input except Alt-drag on the visible chat panel.
+Your game owns menu opening, pause behavior, and its existing master controller.
+See [addon API](addons/streamer_mode/chat/README.md) and
+[branch integration notes](docs/TEAM_WORKFLOW.md).
 
-To load a private `.env` file:
+## Relay setup (developer / service owner)
 
-```sh
-cp .env.example .env
-node --env-file=.env server/index.mjs
-```
+Use Node 22+. Copy `.env.example` to `.env` and configure the desired providers.
+Run `npm start`, then open `http://localhost:8787`. For production use an HTTPS
+origin and persistent encrypted storage; see [deployment](docs/DEPLOYMENT.md).
+Streamers using a hosted relay do not install Node or the server.
 
-`npm start`, `npm run dev`, and `npm test` are optional shortcuts.
+Register these exact URLs using your `PUBLIC_URL`:
 
-## Streamer workflow
+| Platform | OAuth callback | Other configuration |
+| --- | --- | --- |
+| Kick | `/oauth/kick/callback` | Public webhook `/webhooks/kick` |
+| Twitch | `/oauth/twitch/callback` | EventSub WebSocket connection |
+| YouTube | `/oauth/youtube/callback` | Enable YouTube Data API v3; Web application OAuth client |
 
-1. Install **XP Farmers Chat** on Windows or macOS. Development installers are
-   available as artifacts from [Desktop app builds](https://github.com/xsolla-baku-gametech-hackathon/team-XP-Farmers/actions/workflows/desktop.yml).
-2. Open your service's Chat Studio in your normal browser. Choose **Kick**,
-   **Twitch** or **YouTube**, then authorize your own channel.
-3. Set background opacity (0–100%), text size and corner. Default opacity is **35%**.
-4. Enable **Streamer Mode** and click **Show on screen**. This opens the installed
-   desktop app with your private link. Choose a display, then click **Start overlay**.
-5. If the browser cannot open the app, click **Copy link**, paste it into the desktop
-   app's **Private overlay link** field and click **Start overlay**.
-6. Send a message in your channel's chat. The actual sender's name and message
-   appear above your other windows. The surrounding desktop stays transparent,
-   text remains opaque, and mouse clicks pass through the chat to the game.
+Provider secrets and refresh tokens stay on the relay. The game receives a
+read-only private link, held only in memory. HTTPS is required except HTTP
+`localhost`/`127.0.0.1` for development. Replace an exposed link in the browser;
+reconnect the game with the new link. Disconnecting in the game stops local
+reading; disconnect in the browser to stop the provider session.
 
-Adjust appearance in the browser studio. Keep the desktop app running; its controls
-can be minimized. **Stop overlay** stops the local window. **Streamer Mode off**
-hides chat and discards new messages; **Disconnect** ends the provider connection.
-Replacing the private link invalidates the old one, so use **Show on screen** again.
-Desktop overlay links stay in memory and must be supplied again after quitting the app.
-
-For YouTube, select the Google/Brand Account that owns the channel and allow the
-read-only YouTube permission. Start a broadcast with chat enabled; the studio finds
-it within about 30 seconds. Each message includes the viewer's API-provided display
-name. The studio returns to waiting when the broadcast ends.
-
-Each session connects **one platform/channel**. The desktop app displays one overlay
-at a time. Combining three chats into one feed is not implemented. When a YouTube
-channel has multiple live broadcasts, the first eligible broadcast returned by
-YouTube is used until it ends.
-
-The app displays chat on **your desktop**; it does not transmit video or audio.
-For viewers to see that same chat, your broadcasting platform/tool must capture
-that desktop/display, including the overlay. A capture of only the game window
-may exclude it. Use borderless/windowed games; exclusive fullscreen and individual
-game/OS restrictions can prevent other windows from appearing above a game.
-
-## Run or build the desktop app
-
-With Node 22+ and npm installed:
-
-```sh
-cd desktop
-npm ci
-npm start
-```
-
-Open the studio in a browser, copy its overlay link, and paste it into the desktop
-app. URL launching through **Show on screen** is registered by packaged apps;
-development mode deliberately does not change OS protocol associations.
-
-To package for the current OS, run `npm run dist` from `desktop/`. The desktop CI
-builds Windows x64 and macOS ARM64/x64 artifacts without publishing a release or
-merging any branch. These are unsigned development builds; distribution signing
-and macOS notarization must be configured before a commercial release. See the
-[desktop deployment notes](docs/DEPLOYMENT.md#desktop-distribution).
-
-## Service owner setup
-
-Run one Node service behind an HTTPS reverse proxy. Set `PUBLIC_URL` to its exact
-public origin and configure any or all three platforms. Each streamer uses their own
-OAuth session; provider secrets belong only on your server.
-
-| Provider | Application configuration |
-| --- | --- |
-| Kick | Set `KICK_CLIENT_ID` and `KICK_CLIENT_SECRET`. Enable webhooks. Redirect URI: `https://YOUR-DOMAIN/oauth/kick/callback`. Webhook: `https://YOUR-DOMAIN/webhooks/kick`. Scopes: `user:read events:subscribe`. |
-| YouTube | Enable YouTube Data API v3 and register a Google OAuth **Web application**. Set `YOUTUBE_CLIENT_ID` and `YOUTUBE_CLIENT_SECRET`. Redirect URI: `https://YOUR-DOMAIN/oauth/youtube/callback`. Scope: `https://www.googleapis.com/auth/youtube.readonly`. |
-| Twitch | Register a confidential application. Set `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET`. Redirect URI: `https://YOUR-DOMAIN/oauth/twitch/callback`. Scope: `user:read:chat`. EventSub WebSockets receive the connected broadcaster's own chat. |
-
-GitHub stores and distributes the code. **GitHub Pages alone cannot run this
-service**: OAuth token exchange, Kick webhooks, Twitch/YouTube connections and persistence
-require the Node server. See [deployment instructions](docs/DEPLOYMENT.md).
-
-For durable sessions, set `DATA_FILE` and `SESSION_SECRET`. The service encrypts
-provider tokens, settings and overlay keys using AES-256-GCM. Without `DATA_FILE`,
-development sessions are memory-only and links expire on restart. Production mode
-refuses to start without HTTPS and encrypted persistence.
-
-## Behavior and limits
-
-- Separate owner cookies and read-only overlay keys; OAuth tokens never reach the browser.
-- Overlay keys are URL fragments, so they are not sent in page URLs or referrers.
-  The overlay sends its key only in the authorization header to this service.
-- Settings survive reloads. With encrypted storage, sessions and links survive
-  server restarts. Chat contents and pending sign-ins are never saved to disk.
-- Up to **100 active sessions**, seven-day idle expiry, 100 messages in memory per
-  session, last 12 rendered, and messages age out after two minutes. This is a
-  single-process service; do not run replicas against the same data file.
-- Automatic provider-token refresh, Twitch hourly token validation, EventSub
-  reconnect/keepalive handling, Kick signature verification and delivery deduplication.
-- Twitch message deletion, user-message clearing and chat clearing remove visible messages.
-  YouTube ban events and deletion/tombstone events remove messages when supplied by the API.
-  **Kick moderation deletion is not implemented**; messages expire after two minutes.
-- Text and usernames render literally, including HTML-like content. Emotes render
-  as text. No chat-sending capability is requested.
-- Browser polling adds about one second of latency. YouTube uses the documented
-  `liveChatMessages.list` API, polling no faster than five seconds and respecting
-  any longer `pollingIntervalMillis` returned by YouTube. API quota is shared by all
-  YouTube sessions; plan capacity before selling access (see deployment guide).
-  Network interruptions blank the overlay until reconnection; messages missed during downtime cannot be recovered.
-- This is a deployable product foundation. Billing, license enforcement, account
-  recovery, multi-replica storage, commercial support and load certification are not included.
-
-## Validation
+## Verification
 
 ```sh
 node --test tests/*.test.mjs
+godot --headless --editor --import --quit
+godot --headless --script tests/test_foundation.gd
+godot --headless --script tests/test_chat.gd
+node tests/godot_relay.mjs
 ```
 
-Tests cover OAuth browser binding/replay, token isolation, multiple streamers,
-malformed input/CSRF, signed Kick events, message limits, opacity/mode settings,
-link revocation, encrypted restart persistence, desktop URL boundaries and sandbox
-configuration, Twitch EventSub subscriptions,
-reconnect and moderation, YouTube offline OAuth/refresh, broadcast discovery,
-cursors, polling intervals, history filtering, stream transitions and quota errors.
-Provider calls are mocked in automated tests.
-
-Before selling access, configure real provider apps and run the live acceptance
-steps in [deployment instructions](docs/DEPLOYMENT.md), including the desktop overlay and your actual broadcast capture.
-Passing mocked tests does not certify real-account delivery.
-
-## Azərbaycanca qısa istifadə
-
-OBS və Godot lazım deyil. XP Farmers Chat tətbiqini açın → brauzerdə panelə daxil
-olub Kick/Twitch/YouTube hesabınızı qoşun → **Streamer Mode** aktiv edin →
-**Show on screen** → tətbiqdə ekranı seçin və **Start overlay** basın.
-Çata yazan şəxsin username-i hər mesajda görünür. Fonun şəffaflığını **Background
-opacity** ilə dəyişin; yazıların görünməsi dəyişmir. Kod GitHub-dadır, canlı xidmət
-üçün isə HTTPS üzərindən işləyən Node server və platforma tətbiq açarları lazımdır.
-
-## Protocol references
-
-- [Kick OAuth](https://docs.kick.com/getting-started/generating-tokens-oauth2-flow)
-- [Kick webhook security](https://docs.kick.com/events/webhook-security)
-- [Twitch EventSub WebSockets](https://dev.twitch.tv/docs/eventsub/handling-websocket-events/)
-- [Twitch chat events](https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/#channelchatmessage)
-- [Twitch token validation](https://dev.twitch.tv/docs/authentication/validate-tokens/)
-- [YouTube live broadcasts](https://developers.google.com/youtube/v3/live/docs/liveBroadcasts/list)
-- [YouTube live chat polling](https://developers.google.com/youtube/v3/live/docs/liveChatMessages/list)
-- [Google server OAuth](https://developers.google.com/identity/protocols/oauth2/web-server)
+Automated provider tests use mocked platform traffic. Real-account OAuth and live
+broadcast delivery across all three platforms still require release acceptance.
+The existing audio/privacy foundation remains available; their feature branches
+are not incorporated yet. Billing, licensing and customer entitlements are not implemented.

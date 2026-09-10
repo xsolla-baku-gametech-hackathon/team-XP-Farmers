@@ -8,4 +8,6 @@ data/
 node_modules/
 .DS_Store
 coverage/
-desktop/dist/
+
+.godot/
+*.tmp
