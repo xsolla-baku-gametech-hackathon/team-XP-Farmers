@@ -17,6 +17,8 @@ var _scan_toggle: CheckButton
 var _interval_slider: HSlider
 var _interval_value: Label
 var _param_sliders: Dictionary = {}   # key -> { slider, value_label }
+var _packs_box: VBoxContainer
+var _pack_boxes: Dictionary = {}      # pack -> CheckBox
 var _allow_input: LineEdit
 var _allow_box: VBoxContainer
 
@@ -43,6 +45,11 @@ func _ready() -> void:
 	_interval_value = interval_row[2]
 	_interval_slider.value_changed.connect(_on_interval_changed)
 	page.add_child(interval_row[0])
+
+	page.add_child(_heading("PATTERN PACKS"))
+	_packs_box = VBoxContainer.new()
+	_packs_box.add_theme_constant_override("separation", 2)
+	page.add_child(_packs_box)
 
 	page.add_child(_heading("BLUR"))
 	for spec in [
@@ -111,6 +118,7 @@ func _disconnect_engine() -> void:
 func _pull_state() -> void:
 	var stats := _engine.get_scan_stats()
 	_scan_toggle.set_pressed_no_signal(stats.get("scanning", false))
+	_rebuild_packs()
 	_interval_slider.set_value_no_signal(_engine.scan_interval)
 	_interval_value.text = "%.2fs" % _engine.scan_interval
 	for key in _param_sliders:
@@ -119,6 +127,26 @@ func _pull_state() -> void:
 		s["slider"].set_value_no_signal(v)
 		s["value_label"].text = _fmt(v)
 	_rebuild_allow_list()
+
+
+func _rebuild_packs() -> void:
+	for child in _packs_box.get_children():
+		child.queue_free()
+	_pack_boxes.clear()
+	for pack in _engine.get_packs():
+		var box := CheckBox.new()
+		box.text = String(pack)
+		box.focus_mode = Control.FOCUS_NONE
+		box.add_theme_font_size_override("font_size", 12)
+		box.set_pressed_no_signal(_engine.is_pack_enabled(pack))
+		box.toggled.connect(_on_pack_toggled.bind(pack))
+		_packs_box.add_child(box)
+		_pack_boxes[pack] = box
+
+
+func _on_pack_toggled(pressed: bool, pack: StringName) -> void:
+	if is_instance_valid(_engine):
+		_engine.set_pack_enabled(pack, pressed)
 
 
 func _on_scan_toggled(pressed: bool) -> void:

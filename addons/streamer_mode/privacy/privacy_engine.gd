@@ -2,24 +2,24 @@ class_name PrivacyEngine
 extends CanvasLayer
 ## Automated privacy masking, gated by StreamerModeController.
 ##
+## Automation is the default. As soon as setup() binds a controller the scanner
+## starts; a host that wants manual-only control can set auto_scan_on_setup to
+## false or call set_scanning(false).
+##
 ## Two detection strategies feed one pool of blur masks:
 ##
-##   Strategy A - Node scanner (opt-in, best effort)
+##   Strategy A - Node scanner (on by default)
 ##     Walks Label / RichTextLabel / LineEdit nodes under one or more scan roots
-##     and RegEx-matches their visible text against code, IP and keyword
-##     patterns. It cannot see text drawn with _draw(), text in textures, or
-##     strings that do not match a pattern. Do not rely on it for anything that
-##     must not leak.
+##     and RegEx-matches their visible text against enabled pattern packs. Where
+##     the text layout can be measured it masks only the matched substring, not
+##     the whole control. It cannot see text drawn with _draw(), text in
+##     textures, or strings that match no pattern.
 ##
-##   Strategy B - Registered regions (reliable)
-##     The game explicitly marks a node or a rect provider as private, either by
-##     calling register_node()/register_rect_provider() or by putting a Control
-##     in the "privacy_sensitive" group. It is masked whenever the feature is
-##     active and the mask follows the target through layout and window resizes.
+##   Strategy B - Registered regions (explicit, exact)
+##     register_node() / register_rect_provider(), or a Control in the
+##     "privacy_sensitive" group. Always masked while the feature is active.
 ##
-## For every active target a PrivacyBlurMask is snapped over its global rect.
-## When the target disappears - node freed or hidden, text no longer matches,
-## region unregistered, or the feature switched off - the mask fades and frees.
+## PrivacyDrawTool supplements both for anything the scanner cannot reach.
 
 signal region_masked(id: StringName, rect: Rect2)
 signal region_cleared(id: StringName)
@@ -27,6 +27,7 @@ signal match_found(text: String, rect: Rect2)
 
 const Controller := preload("res://addons/streamer_mode/core/streamer_mode_controller.gd")
 const BlurMask := preload("res://addons/streamer_mode/privacy/privacy_blur_mask.gd")
+const Locator := preload("res://addons/streamer_mode/privacy/privacy_text_locator.gd")
 
 const OVERLAY_LAYER := 127
 const KIND_NODE := 0
@@ -34,29 +35,88 @@ const KIND_PROVIDER := 1
 const KIND_SCAN := 2
 const KIND_RETIRED := -1
 
+## --- Pattern packs -------------------------------------------------------
+## A pattern may expose a capture group named "secret" (or group 1) to mask
+## only that part of the match, leaving the surrounding label text readable.
+
+const PACK_LOBBY_CODES := &"lobby_codes"
+const PACK_NETWORK := &"network"
+const PACK_CONTACT := &"contact"
+const PACK_IDENTIFIERS := &"identifiers"
+
+const PATTERN_PACKS := {
+	PACK_LOBBY_CODES: [
+		# GAME-2231, XP4829
+		"\\b[A-Z]{2,6}-?[0-9]{3,6}\\b",
+		# KX7Q-22F1: two alphanumeric blocks, at least one digit somewhere
+		"\\b(?=[A-Z0-9]*[0-9])[A-Z0-9]{4,8}-[A-Z0-9]{4,8}\\b",
+		# "Room: abc123" - explicit separator, mask only the value
+		"(?i)\\b(?:room|lobby|invite|party)\\s*(?:code|id)?\\s*[:#]\\s*(?<secret>[A-Za-z0-9][A-Za-z0-9\\-]{2,})",
+		# "Room 4512" - no separator, so require a digit in the value
+		"(?i)\\b(?:room|lobby|invite|party)\\s*(?:code|id)?\\s+(?<secret>(?=[A-Za-z0-9\\-]*[0-9])[A-Za-z0-9][A-Za-z0-9\\-]{3,})",
+	],
+	PACK_NETWORK: [
+		# IPv4 with optional port
+		"\\b(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\\.){3}(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?::[0-9]{1,5})?\\b",
+		# IPv6, full eight groups
+		"\\b(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}\\b",
+		# IPv6, compressed - must contain "::" so clock times never match
+		"\\b[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4}){0,5}::(?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4}){0,5})?",
+		# bracketed IPv6 with port
+		"\\[[0-9A-Fa-f:]{2,45}\\]:[0-9]{1,5}",
+		# Discord invite links
+		"(?i)\\b(?:https?://)?(?:www\\.)?discord(?:\\.gg|app\\.com/invite)/[A-Za-z0-9\\-]{2,32}\\b",
+		# Steam IDs and friend codes
+		"\\bSTEAM_[0-5]:[01]:[0-9]{1,12}\\b",
+		"(?i)\\bfriend\\s*code\\s*[:#]?\\s*(?<secret>[0-9]{6,12})\\b",
+		# explicit port callouts
+		"(?i)\\bport\\s*[:#]?\\s*(?<secret>[0-9]{2,5})\\b",
+	],
+	PACK_CONTACT: [
+		# email
+		"\\b[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}\\b",
+		# phone, three-group form
+		"\\b(?:\\+[0-9]{1,3}[ .\\-])?\\(?[0-9]{3}\\)?[ .\\-][0-9]{3}[ .\\-][0-9]{4}\\b",
+		# phone, international
+		"\\+[0-9]{1,3}[ .\\-]?[0-9]{2,4}(?:[ .\\-][0-9]{2,4}){2,3}",
+	],
+	PACK_IDENTIFIERS: [
+		# UUID
+		"\\b[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\\b",
+		# JWT
+		"\\beyJ[A-Za-z0-9_\\-]{8,}\\.[A-Za-z0-9_\\-]{8,}\\.[A-Za-z0-9_\\-]{8,}\\b",
+		# license / serial keys
+		"\\b[A-Z0-9]{4,5}(?:-[A-Z0-9]{4,5}){3,4}\\b",
+		# long opaque tokens
+		"\\b[A-Za-z0-9_\\-]{28,}\\b",
+	],
+}
+
+## Packs on unless the host says otherwise. contact and identifiers are opt-in
+## because they misfire more often in game UI.
+const DEFAULT_PACKS := [PACK_LOBBY_CODES, PACK_NETWORK]
+
+## --- Exports -------------------------------------------------------------
+
 ## Shader defaults for every spawned mask; per-region params override these.
-## Assign through set_mask_param() to also update masks that are already on
-## screen; a bare `mask_params[...] =` only affects masks spawned afterwards.
+## Use set_mask_param() to also update masks already on screen.
 @export var mask_params: Dictionary = {
 	"pixel_size": 14.0,
 	"blur_spread": 1.6,
 	"tint_amount": 0.30,
 	"feather": 0.05,
 }
-@export var target_margin := 10.0     ## grow every masked rect by this many px
+@export var target_margin := 10.0     ## grow whole-node masked rects by this many px
+@export var substring_margin := 3.0   ## grow measured substring rects by this many px
+@export var precise_substrings := true ## mask the matched run, not the whole node
+@export var auto_scan_on_setup := true ## automation is the default
 @export var scan_interval := 0.25     ## seconds between scanner passes
-@export var scan_names := true        ## also match on a node's name
+@export var scan_names := true        ## also treat a keyword in a node's NAME as private
 @export var name_keywords: PackedStringArray = ["room", "lobby", "invite"]
 @export var scan_node_budget := 400   ## nodes checked per pass before round-robin batching
 @export var auto_register_from_group := true
 @export var privacy_group: StringName = &"privacy_sensitive"
 @export var rebind_scan_root_on_scene_change := true
-
-const _DEFAULT_PATTERNS := [
-	"\\b[A-Z]{2,6}-?[0-9]{3,6}\\b",                            # lobby / match codes
-	"\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?::[0-9]{2,5})?\\b",    # IPv4 with optional port
-	"(?i)\\b(?:room|lobby|invite)\\b[ :#\\-]*[A-Za-z0-9]{3,}", # keyword followed by a value
-]
 
 var _controller: StreamerModeController
 var _surface: Control
@@ -68,11 +128,15 @@ var _bound_scene: Node = null
 var _scene_dirty := false
 var _scan_accum := 0.0
 var _scan_cursor := 0
-var _sweep_matched: Dictionary = {}  # instance_id -> Node, accumulates over one sweep
-var _patterns: Array[RegEx] = []
+var _sweep_matched: Dictionary = {}  # region id -> true, accumulated over one sweep
+var _pack_regex: Dictionary = {}     # pack -> Array[RegEx]
+var _enabled_packs: Dictionary = {}  # pack -> bool
+var _custom_patterns: Array[RegEx] = []
+var _active_cache: Array = []
+var _active_dirty := true
 var _text_nodes: Dictionary = {}     # instance_id -> { node: Node, to_screen: Callable }
 var _allow: Dictionary = {}          # exact trimmed string -> true
-var _excluded: Array = []            # subtrees the scanner and group auto-register ignore
+var _excluded: Array = []
 var _regions: Dictionary = {}        # StringName -> _Region
 
 
@@ -90,8 +154,7 @@ func _ready() -> void:
 	_surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_surface)
 
-	for src in _DEFAULT_PATTERNS:
-		add_pattern(src)
+	_compile_packs()
 
 	var tree := get_tree()
 	tree.node_added.connect(_on_node_added)
@@ -121,7 +184,8 @@ func _exit_tree() -> void:
 
 ## --- Public API -----------------------------------------------------------
 
-## Bind (or rebind) the shared controller. Idempotent.
+## Bind (or rebind) the shared controller. Starts the scanner unless
+## auto_scan_on_setup was turned off. Idempotent.
 func setup(controller: StreamerModeController) -> void:
 	if _controller == controller:
 		return
@@ -130,12 +194,12 @@ func setup(controller: StreamerModeController) -> void:
 	_controller = controller
 	if _controller:
 		_controller.state_changed.connect(_sync)
+	if auto_scan_on_setup and _controller != null:
+		set_scanning(true)
 	_sync()
 
 
 ## Strategy B: mask this Control whenever the feature is active.
-## `to_screen` optionally maps the node's rect into main-viewport pixels (for a
-## node that lives inside a SubViewport shown elsewhere on screen).
 func register_node(id: StringName, node: Control, params: Dictionary = {}, to_screen := Callable()) -> void:
 	var r := _ensure_region(id, KIND_NODE)
 	r.node = node
@@ -143,8 +207,7 @@ func register_node(id: StringName, node: Control, params: Dictionary = {}, to_sc
 	r.to_screen = to_screen
 
 
-## Strategy B: mask a rect returned by `provider` (a Callable -> Rect2 in
-## main-viewport pixels). Return a zero-size Rect2 to hide it.
+## Strategy B: mask a rect returned by `provider` (a Callable -> Rect2).
 func register_rect_provider(id: StringName, provider: Callable, params: Dictionary = {}) -> void:
 	var r := _ensure_region(id, KIND_PROVIDER)
 	r.provider = provider
@@ -159,9 +222,8 @@ func unregister(id: StringName) -> void:
 			r.mask.dismiss()
 
 
-## Turn Strategy A on or off. Turning it off retires every region the scanner
-## found (their masks fade out); registered regions are untouched. Turning it on
-## re-indexes, so nodes added while it was off are picked up.
+## Turning scanning off retires every scanner-found region (their masks fade);
+## registered regions are untouched. Turning it on re-indexes.
 func set_scanning(enabled: bool) -> void:
 	if _scanning == enabled:
 		return
@@ -180,30 +242,12 @@ func is_scanning() -> bool:
 	return _scanning
 
 
-## Retire every scanner-found region. Registered regions are left alone.
-func _drop_scan_regions() -> void:
-	_sweep_matched.clear()
-	_scan_cursor = 0
-	for id in _regions.keys():
-		var r: _Region = _regions[id]
-		if r.kind != KIND_SCAN:
-			continue
-		r.alive = false
-		if is_instance_valid(r.mask):
-			r.mask.dismiss()
-		else:
-			_regions.erase(id)
-			region_cleared.emit(id)
-
-
-## Single scan root (kept for API stability). Sugar for set_scan_roots([node]).
 func set_scan_root(node: Node) -> void:
 	set_scan_roots([node] if node != null else [])
 
 
-## Replace the scan roots. Each entry is a Node, or { node, to_screen } where
-## to_screen: Callable(Rect2) -> Rect2 maps a rect from that subtree's viewport
-## into main-viewport pixels (needed for SubViewport / split-screen roots).
+## Entries are a Node, or { node, to_screen } where to_screen: Callable(Rect2)
+## -> Rect2 maps a rect from that subtree's viewport into main-viewport pixels.
 func set_scan_roots(roots: Array) -> void:
 	_scan_roots.clear()
 	for entry in roots:
@@ -213,20 +257,49 @@ func set_scan_roots(roots: Array) -> void:
 
 func add_scan_root(node: Node, to_screen := Callable()) -> void:
 	_append_root({"node": node, "to_screen": to_screen})
-	if _is_scan_node_root(node):
+	if is_instance_valid(node):
 		_index_subtree(node, to_screen)
 
 
-## Never mask, and never scan, anything inside this subtree (e.g. a dev panel).
 func exclude_subtree(node: Node) -> void:
 	if is_instance_valid(node) and not _excluded.has(node):
 		_excluded.append(node)
 
 
+## --- pattern packs ------------------------------------------------------
+
+func set_pack_enabled(pack: StringName, enabled: bool) -> void:
+	if not PATTERN_PACKS.has(pack):
+		push_warning("PrivacyEngine: unknown pattern pack %s" % pack)
+		return
+	if _enabled_packs.get(pack, false) == enabled:
+		return
+	_enabled_packs[pack] = enabled
+	_active_dirty = true
+
+
+func is_pack_enabled(pack: StringName) -> bool:
+	return bool(_enabled_packs.get(pack, false))
+
+
+func get_packs() -> Array:
+	return PATTERN_PACKS.keys()
+
+
+func get_enabled_packs() -> Array:
+	var out: Array = []
+	for pack in PATTERN_PACKS:
+		if is_pack_enabled(pack):
+			out.append(pack)
+	return out
+
+
+## Extra pattern, always active regardless of pack toggles.
 func add_pattern(source: String) -> void:
 	var rx := RegEx.new()
 	if rx.compile(source) == OK:
-		_patterns.append(rx)
+		_custom_patterns.append(rx)
+		_active_dirty = true
 	else:
 		push_warning("PrivacyEngine: could not compile pattern %s" % source)
 
@@ -259,7 +332,6 @@ func set_mask_param(key: String, value) -> void:
 			r.mask.configure(_merged_params(r.params))
 
 
-## Re-scan the "privacy_sensitive" group now (e.g. after building UI in code).
 func refresh_group() -> void:
 	_sweep_group()
 
@@ -270,7 +342,6 @@ func refresh() -> void:
 		_run_scan(true)
 
 
-## Number of regions currently showing a (non-dismissing) mask.
 func active_region_count() -> int:
 	var n := 0
 	for id in _regions:
@@ -293,6 +364,7 @@ func get_scan_stats() -> Dictionary:
 		"roots": _scan_roots.size(),
 		"scan_regions": _count_kind(KIND_SCAN),
 		"registered_regions": _count_kind(KIND_NODE) + _count_kind(KIND_PROVIDER),
+		"packs": get_enabled_packs(),
 	}
 
 
@@ -371,20 +443,28 @@ func _run_scan(force_full: bool) -> void:
 			continue
 		if _is_excluded(node):
 			continue
-		if not _is_sensitive(_node_text(node), node):
+		var ctrl := node as Control
+		var text := Locator.text_of(ctrl)
+		var ranges := _match_ranges(text, ctrl)
+		if ranges.is_empty():
 			continue
-		_sweep_matched[key] = node
-		var id := StringName("scan:%d" % key)
-		if _regions.has(id):
-			(_regions[id] as _Region).alive = true
-			continue
-		var gr: Rect2 = (node as Control).get_global_rect()
-		if _covered_by_registered(_map_rect(gr, entry["to_screen"])):
-			continue
-		var r := _ensure_region(id, KIND_SCAN)
-		r.node = node
-		r.to_screen = entry["to_screen"]
-		match_found.emit(_node_text(node), _map_rect(gr, entry["to_screen"]))
+		for frag in _fragments_for(ctrl, ranges, entry["to_screen"]):
+			var id: StringName = frag["id"]
+			_sweep_matched[id] = true
+			if _regions.has(id):
+				(_regions[id] as _Region).alive = true
+				continue
+			if _covered_by_registered(frag["screen_rect"]):
+				continue
+			var r := _ensure_region(id, KIND_SCAN)
+			r.node = ctrl
+			r.to_screen = entry["to_screen"]
+			r.text_range = frag["range"]
+			r.frag_index = frag["frag"]
+			r.whole_node = frag["whole"]
+			r.local_rect = frag["local_rect"]
+			r.measure_sig = _measure_sig(ctrl, text)
+			match_found.emit(frag["label"], frag["screen_rect"])
 
 	var sweep_done := full or _scan_cursor >= keys.size()
 	if sweep_done:
@@ -393,27 +473,173 @@ func _run_scan(force_full: bool) -> void:
 			var r: _Region = _regions[id]
 			if r.kind != KIND_SCAN:
 				continue
-			r.alive = _sweep_matched.has(int(String(id).trim_prefix("scan:")))
+			r.alive = _sweep_matched.has(id)
 		_sweep_matched.clear()
+
+
+## Character ranges of every private run in `text`. A single Vector2i(-1, -1)
+## means "private, but no measurable range" (mask the whole node).
+func _match_ranges(text: String, node: Node) -> Array:
+	if scan_names and _name_matches(node):
+		return [Vector2i(-1, -1)]
+	var trimmed := text.strip_edges()
+	if trimmed.is_empty() or _allow.has(trimmed):
+		return []
+	var found: Array = []
+	for rx in _active_patterns():
+		var offset := 0
+		while offset <= text.length():
+			var m: RegExMatch = rx.search(text, offset)
+			if m == null:
+				break
+			var s := _match_start(m)
+			var e := _match_end(m)
+			if e > s:
+				var piece := text.substr(s, e - s).strip_edges()
+				if not _allow.has(piece):
+					found.append(Vector2i(s, e))
+			offset = maxi(m.get_end(0), offset + 1)
+	return _merge_ranges(found)
+
+
+func _fragments_for(ctrl: Control, ranges: Array, to_screen: Callable) -> Array:
+	var out: Array = []
+	var base := ctrl.get_instance_id()
+	var text := Locator.text_of(ctrl)
+	var global_rect := ctrl.get_global_rect()
+	for ri in ranges.size():
+		var rng: Vector2i = ranges[ri]
+		var rects: Array[Rect2] = []
+		if precise_substrings and rng.x >= 0 and Locator.supports(ctrl):
+			rects = Locator.locate(ctrl, rng.x, rng.y)
+		if rects.is_empty():
+			out.append({
+				"id": StringName("scan:%d:%d:w" % [base, ri]),
+				"range": rng, "frag": 0, "whole": true, "local_rect": Rect2(),
+				"screen_rect": _map_rect(global_rect, to_screen),
+				"label": text,
+			})
+			continue
+		var piece := text.substr(rng.x, rng.y - rng.x)
+		for fi in rects.size():
+			out.append({
+				"id": StringName("scan:%d:%d:%d" % [base, ri, fi]),
+				"range": rng, "frag": fi, "whole": false, "local_rect": rects[fi],
+				"screen_rect": _map_rect(Rect2(global_rect.position + rects[fi].position, rects[fi].size), to_screen),
+				"label": piece,
+			})
+	return out
+
+
+func _active_patterns() -> Array:
+	if not _active_dirty:
+		return _active_cache
+	_active_cache = []
+	for pack in PATTERN_PACKS:
+		if is_pack_enabled(pack):
+			_active_cache.append_array(_pack_regex.get(pack, []))
+	_active_cache.append_array(_custom_patterns)
+	_active_dirty = false
+	return _active_cache
+
+
+func _compile_packs() -> void:
+	for pack in PATTERN_PACKS:
+		var arr: Array[RegEx] = []
+		for src in PATTERN_PACKS[pack]:
+			var rx := RegEx.new()
+			if rx.compile(src) == OK:
+				arr.append(rx)
+			else:
+				push_warning("PrivacyEngine: bad pattern in pack %s: %s" % [pack, src])
+		_pack_regex[pack] = arr
+		if not _enabled_packs.has(pack):
+			_enabled_packs[pack] = DEFAULT_PACKS.has(pack)
+	_active_dirty = true
+
+
+## Prefer a "secret" capture group, then group 1, then the whole match.
+func _match_start(m: RegExMatch) -> int:
+	if m.names.has("secret"):
+		var s := m.get_start("secret")
+		if s >= 0:
+			return s
+	if m.get_group_count() >= 1:
+		var g := m.get_start(1)
+		if g >= 0:
+			return g
+	return m.get_start(0)
+
+
+func _match_end(m: RegExMatch) -> int:
+	if m.names.has("secret"):
+		var e := m.get_end("secret")
+		if e >= 0:
+			return e
+	if m.get_group_count() >= 1:
+		var g := m.get_end(1)
+		if g >= 0:
+			return g
+	return m.get_end(0)
+
+
+func _merge_ranges(ranges: Array) -> Array:
+	if ranges.size() <= 1:
+		return ranges
+	ranges.sort_custom(func(a: Vector2i, b: Vector2i): return a.x < b.x)
+	var out: Array = [ranges[0]]
+	for i in range(1, ranges.size()):
+		var cur: Vector2i = ranges[i]
+		var last: Vector2i = out[out.size() - 1]
+		if cur.x <= last.y:
+			out[out.size() - 1] = Vector2i(last.x, maxi(last.y, cur.y))
+		else:
+			out.append(cur)
+	return out
+
+
+func _name_matches(node: Node) -> bool:
+	var name_l := String(node.name).to_lower()
+	for kw in name_keywords:
+		if not kw.is_empty() and name_l.contains(kw.to_lower()):
+			return true
+	return false
+
+
+func _measure_sig(ctrl: Control, text: String) -> String:
+	return "%s|%.1f|%.1f" % [text, ctrl.size.x, ctrl.size.y]
+
+
+func _refresh_measure(r: _Region, ctrl: Control) -> void:
+	var text := Locator.text_of(ctrl)
+	var sig := _measure_sig(ctrl, text)
+	if r.measure_sig == sig:
+		return
+	r.measure_sig = sig
+	if r.text_range.x < 0 or r.text_range.y > text.length():
+		r.local_rect = Rect2()
+		return
+	var rects := Locator.locate(ctrl, r.text_range.x, r.text_range.y)
+	r.local_rect = rects[r.frag_index] if r.frag_index < rects.size() else Rect2()
 
 
 func _reindex() -> void:
 	_text_nodes.clear()
 	_scan_cursor = 0
 	for root in _scan_roots:
-		if _is_scan_node_root(root["node"]):
+		if is_instance_valid(root["node"]):
 			_index_subtree(root["node"], root["to_screen"])
 
 
 func _index_subtree(node: Node, to_screen: Callable) -> void:
-	if _is_text_node(node) and not _is_excluded(node):
+	if Locator.supports(node) and not _is_excluded(node):
 		_text_nodes[node.get_instance_id()] = {"node": node, "to_screen": to_screen}
 	for child in node.get_children():
 		_index_subtree(child, to_screen)
 
 
 func _on_node_added(node: Node) -> void:
-	if _scanning and _is_text_node(node) and not _is_excluded(node):
+	if _scanning and Locator.supports(node) and not _is_excluded(node):
 		var to_screen = _root_transform_for(node)
 		if to_screen != null:
 			_text_nodes[node.get_instance_id()] = {"node": node, "to_screen": to_screen}
@@ -430,33 +656,19 @@ func _on_tree_changed() -> void:
 	_scene_dirty = true
 
 
-func _is_text_node(node: Node) -> bool:
-	return node is Label or node is RichTextLabel or node is LineEdit
-
-
-func _node_text(node: Node) -> String:
-	if node is RichTextLabel:
-		return (node as RichTextLabel).get_parsed_text()
-	if node is Label:
-		return (node as Label).text
-	if node is LineEdit:
-		return (node as LineEdit).text
-	return ""
-
-
-func _is_sensitive(text: String, node: Node) -> bool:
-	var trimmed := text.strip_edges()
-	if trimmed.is_empty() or _allow.has(trimmed):
-		return false
-	for rx in _patterns:
-		if rx.search(trimmed) != null:
-			return true
-	if scan_names:
-		var hay := (trimmed + " " + String(node.name)).to_lower()
-		for kw in name_keywords:
-			if not kw.is_empty() and hay.contains(kw.to_lower()):
-				return true
-	return false
+func _drop_scan_regions() -> void:
+	_sweep_matched.clear()
+	_scan_cursor = 0
+	for id in _regions.keys():
+		var r: _Region = _regions[id]
+		if r.kind != KIND_SCAN:
+			continue
+		r.alive = false
+		if is_instance_valid(r.mask):
+			r.mask.dismiss()
+		else:
+			_regions.erase(id)
+			region_cleared.emit(id)
 
 
 func _covered_by_registered(target: Rect2) -> bool:
@@ -502,6 +714,11 @@ func _region_rect(r: _Region) -> Rect2:
 		var gr := ctrl.get_global_rect()
 		if gr.size.x <= 0.0 or gr.size.y <= 0.0:
 			return Rect2()
+		if r.kind == KIND_SCAN and not r.whole_node:
+			_refresh_measure(r, ctrl)
+			if r.local_rect.size.x > 0.0 and r.local_rect.size.y > 0.0:
+				var sub := Rect2(gr.position + r.local_rect.position, r.local_rect.size)
+				return _map_rect(sub, r.to_screen).grow(substring_margin)
 		return _map_rect(gr, r.to_screen).grow(target_margin)
 	if r.kind == KIND_PROVIDER:
 		if not r.provider.is_valid():
@@ -608,13 +825,7 @@ func _append_root(entry) -> void:
 		_scan_roots.append(record)
 
 
-func _is_scan_node_root(node) -> bool:
-	return is_instance_valid(node)
-
-
 func _root_transform_for(node: Node):
-	# Returns the to_screen Callable of the first root that contains `node`,
-	# or null when no root does.
 	for root in _scan_roots:
 		var rn = root["node"]
 		if is_instance_valid(rn) and (rn == node or rn.is_ancestor_of(node)):
@@ -664,3 +875,9 @@ class _Region:
 	var to_screen := Callable()
 	var params: Dictionary = {}
 	var mask: PrivacyBlurMask = null
+	# Scanner sub-rect bookkeeping.
+	var text_range := Vector2i(-1, -1)
+	var frag_index := 0
+	var whole_node := true
+	var local_rect := Rect2()
+	var measure_sig := ""

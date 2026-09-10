@@ -6,6 +6,7 @@ const Services = preload("res://demo/demo_services.gd")
 const PrivacyEngine = preload("res://addons/streamer_mode/privacy/privacy_engine.gd")
 const PrivacyCopyField = preload("res://addons/streamer_mode/privacy/privacy_copy_field.gd")
 const PrivacyControlPanel = preload("res://addons/streamer_mode/privacy/privacy_control_panel.gd")
+const PrivacyDrawTool = preload("res://addons/streamer_mode/privacy/privacy_draw_tool.gd")
 const INK := Color("e6edf0")
 const MUTED := Color("8fa4b0")
 const LIME := Color("b4ee93")
@@ -26,6 +27,9 @@ var privacy_engine: PrivacyEngine
 var join_code_field: PrivacyCopyField
 var control_panel: PrivacyControlPanel
 var panel_toggle: Button
+var privacy_draw: PrivacyDrawTool
+var draw_button: Button
+var handles_button: Button
 
 
 func _ready() -> void:
@@ -60,11 +64,16 @@ func _ready() -> void:
 	control_panel.hide()
 	add_child(control_panel)
 	control_panel.setup(privacy_engine)
-	# Strategy A: scan the demo UI for codes and IPs (finds the match-server line).
-	# Allow-list the section caption so the "lobby" keyword rule ignores it.
-	privacy_engine.allow_text("DEMO LOBBY   /   SAMPLE DATA")
+	# Automatic scanning is already running: PrivacyEngine.setup() starts it.
+	# It only needs to be told which subtree to watch.
 	privacy_engine.set_scan_root(self)
-	privacy_engine.set_scanning(true)
+	# Supplement, not the primary path: for anything the scanner cannot reach.
+	privacy_draw = PrivacyDrawTool.new()
+	privacy_draw.name = "PrivacyDrawTool"
+	add_child(privacy_draw)
+	privacy_draw.setup(privacy_engine)
+	privacy_draw.armed_changed.connect(func(on: bool): draw_button.set_pressed_no_signal(on))
+	privacy_draw.regions_changed.connect(func(_n: int): _refresh())
 	controller.state_changed.connect(_refresh)
 	services.audio_status_changed.connect(func(_message: String): _refresh())
 	_refresh()
@@ -74,7 +83,7 @@ func _build_ui() -> void:
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for edge in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + edge, 30)
+		margin.add_theme_constant_override("margin_" + edge, 22)
 	add_child(margin)
 	var page := _column(22)
 	margin.add_child(page)
@@ -101,6 +110,8 @@ func _build_ui() -> void:
 	game_header.add_child(score_label)
 	arena = Arena.new()
 	game.add_child(arena)
+	# Demo composition: leave room for the sensitive lines below the arena.
+	arena.custom_minimum_size = Vector2(420, 250)
 	arena.collected.connect(func(total: int): score_label.text = "%02d  SHARDS" % total)
 	arena.collected.connect(services.play_collection_sound)
 	var game_footer := _row(12)
@@ -126,17 +137,21 @@ func _build_ui() -> void:
 	lobby_text.add_child(join_code_field)
 	lobby_status = _label("Privacy + Copy\nVisible on stream", 12, MUTED)
 	lobby_row.add_child(lobby_status)
-	game.add_child(_label("MATCH SERVER   203.0.113.42:7777", 11, MUTED))
+	# Mixed line: only the code blurs, the player name and "Room:" stay readable.
+	game.add_child(_label("Player: xXx_Shadow_xXx     |     Room: GAME-2231", 14, INK))
+	var meta_row := _row(28)
+	game.add_child(meta_row)
+	meta_row.add_child(_label("MATCH SERVER   203.0.113.42:7777", 11, MUTED))
 	var session_line := _label("SESSION   KX7Q-22F1", 11, MUTED)
 	session_line.add_to_group("privacy_sensitive")
-	game.add_child(session_line)
+	meta_row.add_child(session_line)
 	var sidebar := _column(14)
 	sidebar.custom_minimum_size.x = 350
 	content.add_child(sidebar)
 	sidebar.add_child(_label("02   /   STREAM CONTROLS", 12, MUTED))
 	var settings_card := _card()
 	sidebar.add_child(settings_card)
-	var settings := _column(14)
+	var settings := _column(10)
 	settings_card.add_child(settings)
 	settings.add_child(_label("One switch. Your settings.", 22))
 	settings.add_child(_label("Changes apply to player and viewers.", 13, MUTED))
@@ -181,6 +196,30 @@ func _build_ui() -> void:
 	privacy_label = _label("", 12, MUTED)
 	privacy_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	settings.add_child(privacy_label)
+	var draw_row := _row(8)
+	settings.add_child(draw_row)
+	draw_button = Button.new()
+	draw_button.text = "+ Blur region"
+	draw_button.toggle_mode = true
+	draw_button.focus_mode = Control.FOCUS_NONE
+	draw_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	draw_button.tooltip_text = "Then drag a box over anything you want hidden"
+	draw_button.toggled.connect(func(on: bool): privacy_draw.set_armed(on))
+	draw_row.add_child(draw_button)
+	handles_button = Button.new()
+	handles_button.text = "Handles"
+	handles_button.toggle_mode = true
+	handles_button.button_pressed = true
+	handles_button.focus_mode = Control.FOCUS_NONE
+	handles_button.tooltip_text = "Show or hide the region frames"
+	handles_button.toggled.connect(func(on: bool): privacy_draw.show_chrome = on)
+	draw_row.add_child(handles_button)
+	var clear_button := Button.new()
+	clear_button.text = "Clear"
+	clear_button.focus_mode = Control.FOCUS_NONE
+	clear_button.tooltip_text = "Remove every region you drew"
+	clear_button.pressed.connect(func(): privacy_draw.clear_regions())
+	draw_row.add_child(clear_button)
 	var chat_option := CheckBox.new()
 	chat_option.text = "In-game Twitch chat"
 	chat_option.disabled = true
@@ -193,7 +232,7 @@ func _build_ui() -> void:
 	chat_card.add_child(chat)
 	chat.add_child(_label("LIVE CHAT", 11, MUTED))
 	chat.add_child(_label("Not connected", 20))
-	var chat_detail := _label("The Twitch panel will live here.\nNo connection or messages are simulated.", 13, MUTED)
+	var chat_detail := _label("The Twitch panel will live here.", 13, MUTED)
 	chat_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	chat.add_child(chat_detail)
 	page.add_child(_label("TEAM XP FARMERS     /     STREAMER MODE SDK                                       ESC  Toggle mode", 11, MUTED))
@@ -215,7 +254,14 @@ func _refresh() -> void:
 	audio_option.set_pressed_no_signal(controller.is_feature_selected(Controller.AUDIO))
 	privacy_option.set_pressed_no_signal(controller.is_feature_selected(Controller.PRIVACY))
 	var privacy_active := controller.is_feature_active(Controller.PRIVACY)
-	privacy_label.text = "Masking private UI • drag, resize, fade" if privacy_active else "Private UI shown normally"
+	var drawn := privacy_draw.get_region_count() if is_instance_valid(privacy_draw) else 0
+	if privacy_active:
+		var scanning: bool = privacy_engine.is_scanning()
+		privacy_label.text = "%s • %d hand-drawn region%s" % [
+			"Scanning automatically" if scanning else "Automatic scanning off",
+			drawn, "" if drawn == 1 else "s"]
+	else:
+		privacy_label.text = "Private UI shown normally"
 	if is_instance_valid(lobby_status):
 		lobby_status.text = "Privacy + Copy\nMasked on stream" if privacy_active else "Privacy + Copy\nVisible on stream"
 
@@ -263,10 +309,10 @@ func _card() -> PanelContainer:
 	var style := _style(Color("14232e"))
 	style.border_color = Color("293d49")
 	style.set_border_width_all(1)
-	style.content_margin_top = 20
-	style.content_margin_bottom = 20
-	style.content_margin_left = 20
-	style.content_margin_right = 20
+	style.content_margin_top = 14
+	style.content_margin_bottom = 14
+	style.content_margin_left = 18
+	style.content_margin_right = 18
 	panel.add_theme_stylebox_override("panel", style)
 	return panel
 
