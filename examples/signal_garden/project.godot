@@ -1,0 +1,19 @@
+config_version=5
+
+[application]
+config/name="Signal Garden"
+run/main_scene="res://world/garden.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+
+[display]
+window/size/viewport_width=1120
+window/size/viewport_height=780
+window/size/window_width_override=1120
+window/size/window_height_override=780
+window/size/min_width=1000
+window/size/min_height=780
+window/stretch/mode="canvas_items"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.925, 0.945, 0.9, 1)

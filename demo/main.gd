@@ -2,6 +2,7 @@ extends Control
 
 const Controller = preload("res://addons/streamer_mode/core/streamer_mode_controller.gd")
 const Arena = preload("res://demo/arena.gd")
+const SettingsPanel = preload("res://addons/streamer_mode/ui/streamer_mode_panel.tscn")
 const Services = preload("res://demo/demo_services.gd")
 const INK := Color("e6edf0")
 const MUTED := Color("8fa4b0")
@@ -10,10 +11,7 @@ const LIME := Color("b4ee93")
 var controller: StreamerModeController
 var services: Node
 var arena: Control
-var mode_button: Button
-var audio_option: CheckBox
-var status_label: Label
-var audio_label: Label
+var settings_panel: StreamerModePanel
 var score_label: Label
 
 
@@ -88,40 +86,10 @@ func _build_ui() -> void:
 	sidebar.custom_minimum_size.x = 350
 	content.add_child(sidebar)
 	sidebar.add_child(_label("02   /   STREAM CONTROLS", 12, MUTED))
-	var settings_card := _card()
-	sidebar.add_child(settings_card)
-	var settings := _column(14)
-	settings_card.add_child(settings)
-	settings.add_child(_label("One switch. Your settings.", 22))
-	settings.add_child(_label("Changes apply to player and viewers.", 13, MUTED))
-	mode_button = Button.new()
-	mode_button.custom_minimum_size.y = 52
-	mode_button.toggle_mode = true
-	mode_button.add_theme_stylebox_override("normal", _style(Color("b4ee93")))
-	mode_button.add_theme_stylebox_override("hover", _style(Color("c8f6b0")))
-	mode_button.add_theme_stylebox_override("pressed", _style(Color("7dd8f4")))
-	for state in ["font_color", "font_hover_color", "font_pressed_color"]:
-		mode_button.add_theme_color_override(state, Color("12241c"))
-	mode_button.toggled.connect(controller.set_enabled)
-	settings.add_child(mode_button)
-	status_label = _label("", 12, MUTED)
-	settings.add_child(status_label)
-	settings.add_child(HSeparator.new())
-	audio_option = CheckBox.new()
-	audio_option.text = "Stream-safe audio"
-	audio_option.disabled = not services.has_audio()
-	audio_option.button_pressed = true
-	audio_option.toggled.connect(func(selected: bool): controller.set_feature_enabled(Controller.AUDIO, selected))
-	settings.add_child(audio_option)
-	audio_label = _label("", 12, MUTED)
-	audio_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	settings.add_child(audio_label)
-	for feature in ["Protect sensitive information", "In-game Twitch chat"]:
-		var option := CheckBox.new()
-		option.text = feature
-		option.disabled = true
-		settings.add_child(option)
-	settings.add_child(_label("Privacy and chat: awaiting integration", 12, MUTED))
+	settings_panel = SettingsPanel.instantiate()
+	settings_panel.bind(controller)
+	settings_panel.set_feature_available(Controller.AUDIO, services.has_audio())
+	sidebar.add_child(settings_panel)
 	var chat_card := _card()
 	chat_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	sidebar.add_child(chat_card)
@@ -142,11 +110,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 
 func _refresh() -> void:
-	mode_button.set_pressed_no_signal(controller.enabled)
-	mode_button.text = "STREAMER MODE  •  ON" if controller.enabled else "ENABLE STREAMER MODE"
-	status_label.text = "Mode enabled • using selected features" if controller.enabled else "Mode off • normal game settings"
-	audio_label.text = services.get_audio_status()
-	audio_option.set_pressed_no_signal(controller.is_feature_selected(Controller.AUDIO))
+	settings_panel.set_feature_status(Controller.AUDIO, services.get_audio_status())
 
 
 func _reset_run() -> void:

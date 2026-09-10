@@ -30,7 +30,7 @@ func _run() -> void:
 	var demo = load("res://demo/main.tscn").instantiate()
 	root.add_child(demo)
 	await process_frame
-	demo.mode_button.button_pressed = true
+	demo.settings_panel.mode_button.button_pressed = true
 	_check(demo.controller.enabled, "UI toggle is wired to controller")
 	demo._reset_run()
 	_check(demo.arena.score == 0, "Demo resets gameplay")

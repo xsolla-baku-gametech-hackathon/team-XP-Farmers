@@ -62,3 +62,11 @@ while the mode is off takes effect on the next enable.
 4. Twitch connection and actual channel message.
 5. Second-game integration and OBS recording verification.
 
+
+## Reusable settings panel
+
+The integration owner also owns addons/streamer_mode/ui/ and examples/. The
+controller API remains unchanged. Completed feature components are connected by
+the host; it calls panel.set_feature_available(feature, true) and updates status
+through panel.set_feature_status(feature, message). The panel does not implement
+privacy or chat itself. See docs/INTEGRATION.md for the second-host check.

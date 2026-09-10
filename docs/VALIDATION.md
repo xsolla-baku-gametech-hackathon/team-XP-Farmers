@@ -27,3 +27,11 @@ the full log as well: Godot import may return zero even when script errors occur
 
 Automated playback-state checks do not prove the user's speakers, OBS capture or
 Twitch connection. Those require this machine-level acceptance check.
+
+## Portability milestone
+
+Panel lifecycle checks cover unbound controls, component availability, external
+state changes, multiple panels, rebinding, removal and re-entry. Signal Garden
+is generated into an independent directory from its own host code and an exact
+addon copy, then imported by Godot and tested through the actual UI and player.
+See INTEGRATION.md for reproducible steps and the limits of this evidence.

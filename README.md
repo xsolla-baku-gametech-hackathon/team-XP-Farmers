@@ -16,10 +16,11 @@ No Twitch account is needed for the foundation demo.
 
 ## Current milestone
 
-- Playable 2D collection arena and Streamer Mode panel.
+- Playable 2D collection arena and reusable addon settings panel.
 - Reusable controller with master toggle, feature preferences, and signals.
 - Working music replacement with independent collection sound effects.
-- Automated controller, demo wiring and audio transition checks.
+- Independent Signal Garden project using an unchanged copy of the addon.
+- Automated controller, panel lifecycle, audio and second-project integration checks.
 
 Privacy and Twitch chat are pending on this audio branch.
 Their controls are labeled as pending; the sample lobby code is fictional. Enable Streamer Mode to switch from Neon Run to Quiet Orbit. Both tracks are synthesized demo material, not third-party commercial songs.
@@ -38,7 +39,7 @@ sniping. Separate engine adapters would be needed for Unity and Unreal.
 Copy `addons/streamer_mode/` into another Godot project. Create a Node with
 `core/streamer_mode_controller.gd` attached. Pass that controller to feature
 components; connect the game's settings to `set_enabled(bool)`. No autoload or
-editor plugin is required. The addon has no dependency on `demo/`.
+editor plugin is required. The addon has no dependency on `demo/`. You can also instance `ui/streamer_mode_panel.tscn` to use the provided settings UI. See [installation steps and portability evidence](docs/INTEGRATION.md).
 
 See [team workflow and public API](docs/TEAM_WORKFLOW.md) for branch ownership,
 component contracts and how to start feature work. Each feature folder includes
@@ -52,6 +53,7 @@ Replace `godot` with the path to your Godot console executable if needed:
 godot --headless --path . --editor --import --quit
 godot --headless --path . --script res://tests/test_foundation.gd
 godot --headless --path . --script res://tests/audio/test_audio.gd
+godot --headless --path . --script res://tests/ui/test_panel.gd
 ```
 
 Optional screenshots (requires a graphical session):
@@ -68,4 +70,4 @@ files, not `.godot/` caches, exports, account credentials or access tokens.
 One toggle must activate integrated features: switch managed music while keeping
 sound effects, conceal private text while preserving Copy, and show actual Twitch
 chat. Verify a real OBS recording and then integrate the addon into a second
-small project. Audio replacement is implemented. Privacy, live chat, a second project and OBS acceptance remain upcoming milestones. See [validation notes](docs/VALIDATION.md).
+small project. Audio replacement is implemented. Audio and the settings panel have been validated in a separate second project. Privacy, live chat and OBS acceptance remain upcoming milestones. See [validation notes](docs/VALIDATION.md).
