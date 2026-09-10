@@ -1,0 +1,11 @@
+[gd_scene format=3 uid="uid://bx8y7v80uk5h0"]
+
+[ext_resource type="Script" uid="uid://dwx0uhecretg1" path="res://color_rect.gd" id="1_rsar0"]
+
+[node name="MaskRoot" type="Node2D" unique_id=1577878390]
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=731925050]
+offset_right = 200.0
+offset_bottom = 50.0
+color = Color(0, 0, 0, 0.39215687)
+script = ExtResource("1_rsar0")
