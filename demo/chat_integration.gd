@@ -1,10 +1,12 @@
 extends Control
 const Controller = preload("res://addons/streamer_mode/core/streamer_mode_controller.gd")
 const Chat = preload("res://addons/streamer_mode/chat/streamer_chat.gd")
+const SettingsPanel = preload("res://addons/streamer_mode/ui/streamer_mode_panel.tscn")
 const Arena = preload("res://demo/arena.gd")
 var controller: StreamerModeController
 var chat: StreamerChat
 var arena: Control
+var settings_panel: StreamerModePanel
 
 func _ready() -> void:
 	controller = Controller.new()
@@ -15,6 +17,13 @@ func _ready() -> void:
 	chat = Chat.new()
 	chat.bind_controller(controller)
 	add_child(chat)
+	settings_panel = SettingsPanel.instantiate()
+	settings_panel.position = Vector2(900, 70)
+	settings_panel.bind(controller)
+	settings_panel.set_feature_available(Controller.CHAT, true)
+	add_child(settings_panel)
+	chat.status_changed.connect(func(_state: String, detail: String):
+		settings_panel.set_feature_status(Controller.CHAT, detail))
 	var settings_button := Button.new()
 	settings_button.position = Vector2(24, 20)
 	settings_button.text = "Settings · Esc"

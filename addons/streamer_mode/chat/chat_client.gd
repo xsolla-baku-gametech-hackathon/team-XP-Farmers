@@ -11,6 +11,16 @@ var _excluded: Dictionary = {}
 var _request: HTTPRequest
 var _timer: Timer
 
+func _enter_tree() -> void:
+	if is_instance_valid(_timer) and not _endpoint.is_empty():
+		_timer.start()
+
+func _exit_tree() -> void:
+	_request.cancel_request()
+	_timer.stop()
+	_baseline = true
+	_excluded.clear()
+
 func _ready() -> void:
 	_request = HTTPRequest.new()
 	_request.timeout = 10
@@ -33,6 +43,7 @@ func connect_link(link: String) -> bool:
 		return false
 	_endpoint = matched.get_string(1) + "/api/overlay"
 	_key = matched.get_string(5)
+	status_changed.emit("connecting", "Connecting to chat relay…")
 	_timer.start()
 	_poll()
 	return true

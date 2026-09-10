@@ -54,6 +54,30 @@ func _run() -> void:
 	check(chat.client._key == "a".repeat(43), "Extract bearer key correctly")
 	chat.client.disconnect_chat()
 	check(chat.client._key.is_empty(), "Disconnect drops capability")
+	# Shared settings panel uses the same controller; unavailable features stay off.
+	check(not demo.settings_panel.feature_options[&"chat"].disabled, "Chat available in common panel")
+	check(demo.settings_panel.feature_options[&"audio"].disabled, "Audio not falsely advertised")
+	check(demo.settings_panel.feature_options[&"privacy"].disabled, "Privacy not falsely advertised")
+	demo.settings_panel.feature_options[&"chat"].button_pressed = false
+	check(not chat.overlay.visible, "Common panel controls chat")
+	demo.settings_panel.feature_options[&"chat"].button_pressed = true
+	paused = true
+	await process_frame
+	check(chat.client.can_process(), "Chat keeps polling while gameplay is paused")
+	check(chat.settings.can_process(), "Chat settings remain usable while paused")
+	paused = false
+	# Removing and re-adding the component restores bindings without duplicate children.
+	demo.remove_child(chat)
+	demo.add_child(chat)
+	await process_frame
+	check(chat.overlay.visible, "Re-entry restores overlay controller")
+	chat.client.accept_snapshot({"state": "connected", "settings": {"enabled": true}, "messages": []})
+	chat.client.accept_snapshot({"state": "connected", "settings": {"enabled": true}, "messages": [{"id": "reentry", "author": "Test", "text": "Re-entry fixture"}]})
+	check(chat.overlay.messages == ["Test: Re-entry fixture"], "Re-entry restores client subscription")
+	check(chat.get_child_count() == 3, "Re-entry does not create duplicate components")
+	demo.controller.queue_free()
+	await process_frame
+	check(not chat.overlay.visible and not chat.client._active, "Controller removal disables chat")
 	demo.queue_free()
 	await process_frame
 	print("Godot chat checks: ", "PASS" if failures == 0 else "FAIL")

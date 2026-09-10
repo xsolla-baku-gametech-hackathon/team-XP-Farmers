@@ -30,8 +30,21 @@ func _run() -> void:
 	var demo = load("res://demo/main.tscn").instantiate()
 	root.add_child(demo)
 	await process_frame
-	demo.mode_button.button_pressed = true
+	demo.settings_panel.mode_button.button_pressed = true
 	_check(demo.controller.enabled, "UI toggle is wired to controller")
+	_check(demo.services.has_chat(), "Main demo installs chat through DemoServices")
+	_check(demo.services.chat.overlay.visible, "Main demo master switch activates chat")
+	_check(demo.settings_panel.feature_options[Controller.AUDIO].disabled, "Audio remains unavailable")
+	_check(demo.settings_panel.feature_options[Controller.PRIVACY].disabled, "Privacy remains unavailable")
+	demo.services.chat.client.status_changed.emit("connecting", "Connecting fixture")
+	_check(demo.chat_status.text == "Connecting fixture", "Relay status reaches shared demo UI")
+	demo.services.chat.open_settings()
+	await process_frame
+	_check(not demo.arena.is_processing(), "Opening chat settings pauses arena input")
+	demo.services.chat.close_settings()
+	await process_frame
+	_check(demo.arena.is_processing(), "Closing settings restores gameplay")
+	_check(demo.controller.enabled, "Closing settings keeps streamer mode enabled")
 	demo._reset_run()
 	_check(demo.arena.score == 0, "Demo resets gameplay")
 	demo.queue_free()

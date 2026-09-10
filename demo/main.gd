@@ -2,6 +2,7 @@ extends Control
 
 const Controller = preload("res://addons/streamer_mode/core/streamer_mode_controller.gd")
 const Arena = preload("res://demo/arena.gd")
+const SettingsPanel = preload("res://addons/streamer_mode/ui/streamer_mode_panel.tscn")
 const Services = preload("res://demo/demo_services.gd")
 const INK := Color("e6edf0")
 const MUTED := Color("8fa4b0")
@@ -10,11 +11,9 @@ const LIME := Color("b4ee93")
 var controller: StreamerModeController
 var services: Node
 var arena: Control
-var mode_button: Button
-var audio_option: CheckBox
-var status_label: Label
-var audio_label: Label
+var settings_panel: StreamerModePanel
 var score_label: Label
+var chat_status: Label
 
 
 func _ready() -> void:
@@ -29,7 +28,14 @@ func _ready() -> void:
 	_build_ui()
 	controller.state_changed.connect(_refresh)
 	services.audio_status_changed.connect(func(_message: String): _refresh())
+	services.chat_status_changed.connect(func(_state: String, _detail: String): _refresh())
 	_refresh()
+	_place_chat.call_deferred()
+
+
+func _place_chat() -> void:
+	services.chat.overlay.position = arena.global_position + Vector2(16, 16)
+	services.chat.overlay._clamp_position()
 
 
 func _build_ui() -> void:
@@ -88,65 +94,47 @@ func _build_ui() -> void:
 	sidebar.custom_minimum_size.x = 350
 	content.add_child(sidebar)
 	sidebar.add_child(_label("02   /   STREAM CONTROLS", 12, MUTED))
-	var settings_card := _card()
-	sidebar.add_child(settings_card)
-	var settings := _column(14)
-	settings_card.add_child(settings)
-	settings.add_child(_label("One switch. Your settings.", 22))
-	settings.add_child(_label("Changes apply to player and viewers.", 13, MUTED))
-	mode_button = Button.new()
-	mode_button.custom_minimum_size.y = 52
-	mode_button.toggle_mode = true
-	mode_button.add_theme_stylebox_override("normal", _style(Color("b4ee93")))
-	mode_button.add_theme_stylebox_override("hover", _style(Color("c8f6b0")))
-	mode_button.add_theme_stylebox_override("pressed", _style(Color("7dd8f4")))
-	for state in ["font_color", "font_hover_color", "font_pressed_color"]:
-		mode_button.add_theme_color_override(state, Color("12241c"))
-	mode_button.toggled.connect(controller.set_enabled)
-	settings.add_child(mode_button)
-	status_label = _label("", 12, MUTED)
-	settings.add_child(status_label)
-	settings.add_child(HSeparator.new())
-	audio_option = CheckBox.new()
-	audio_option.text = "Stream-safe audio"
-	audio_option.disabled = not services.has_audio()
-	audio_option.button_pressed = true
-	audio_option.toggled.connect(func(selected: bool): controller.set_feature_enabled(Controller.AUDIO, selected))
-	settings.add_child(audio_option)
-	audio_label = _label("", 12, MUTED)
-	audio_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	settings.add_child(audio_label)
-	for feature in ["Protect sensitive information", "In-game Twitch chat"]:
-		var option := CheckBox.new()
-		option.text = feature
-		option.disabled = true
-		settings.add_child(option)
-	settings.add_child(_label("Privacy and chat: awaiting integration", 12, MUTED))
+	settings_panel = SettingsPanel.instantiate()
+	settings_panel.bind(controller)
+	settings_panel.set_feature_available(Controller.AUDIO, services.has_audio())
+	settings_panel.set_feature_available(Controller.CHAT, services.has_chat())
+	sidebar.add_child(settings_panel)
 	var chat_card := _card()
 	chat_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	sidebar.add_child(chat_card)
 	var chat := _column(12)
 	chat_card.add_child(chat)
 	chat.add_child(_label("LIVE CHAT", 11, MUTED))
-	chat.add_child(_label("Not connected", 20))
-	var chat_detail := _label("The Twitch panel will live here.\nNo connection or messages are simulated.", 13, MUTED)
+	chat_status = _label("Not connected", 16)
+	chat_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	chat.add_child(chat_status)
+	var chat_detail := _label("Twitch / Kick / YouTube\nConnect your channel and adjust the overlay.", 13, MUTED)
 	chat_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	chat.add_child(chat_detail)
+	var chat_settings := Button.new()
+	chat_settings.text = "Chat settings"
+	chat_settings.pressed.connect(services.chat.open_settings)
+	chat.add_child(chat_settings)
 	page.add_child(_label("TEAM XP FARMERS     /     STREAMER MODE SDK                                       ESC  Toggle mode", 11, MUTED))
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
-		controller.set_enabled(not controller.enabled)
+		if services.chat.settings.visible:
+			services.chat.close_settings()
+		else:
+			controller.set_enabled(not controller.enabled)
 		get_viewport().set_input_as_handled()
 
 
 func _refresh() -> void:
-	mode_button.set_pressed_no_signal(controller.enabled)
-	mode_button.text = "STREAMER MODE  •  ON" if controller.enabled else "ENABLE STREAMER MODE"
-	status_label.text = "Mode enabled • integrated features active" if controller.enabled else "Mode off • normal game settings"
-	audio_label.text = services.get_audio_status()
-	audio_option.set_pressed_no_signal(controller.is_feature_selected(Controller.AUDIO))
+	settings_panel.set_feature_status(Controller.AUDIO, services.get_audio_status())
+	settings_panel.set_feature_status(Controller.CHAT, services.get_chat_status())
+	chat_status.text = services.get_chat_status()
+
+
+func _process(_delta: float) -> void:
+	arena.set_process(not services.chat.settings.visible)
 
 
 func _reset_run() -> void:

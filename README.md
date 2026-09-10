@@ -7,11 +7,14 @@ There is no Electron companion or OBS dependency. No feature branches have been 
 ## Run the Godot demo
 
 1. Check out `twitch-chat` and import root `project.godot` in Godot 4.7.2.
-2. Press F5. The playable demo opens its **Settings → Streamer Mode** panel.
+2. Press F5. The shared playground opens with the same **Streamer Mode** panel
+   used by the audio branch. Audio/privacy are unavailable until later integration.
+   Click **Chat settings** to open connection and appearance controls.
 3. Connect your channel through the relay browser page (setup below), copy the
    private chat link, and paste it into the game's chat field. Click **Connect chat**.
 4. Enable **Streamer Mode** and **In-game chat**, then select **Back to game**.
-   New messages appear with usernames. WASD/arrows move; Escape opens settings.
+   New messages appear with usernames. WASD/arrows move; Escape closes chat
+   settings when open, otherwise it toggles Streamer Mode.
 5. Adjust background opacity in the game. Alt + drag moves chat. Closing settings
    preserves Streamer Mode. Turning off master mode or chat clears/hides messages.
 
@@ -28,11 +31,18 @@ Copy `addons/streamer_mode/`, instantiate `chat/streamer_chat.tscn`, and bind th
 
 ```gdscript
 var chat = preload("res://addons/streamer_mode/chat/streamer_chat.tscn").instantiate()
-chat.bind_controller(streamer_mode_controller)
-add_child(chat)
+chat.bind(streamer_mode_controller)
+persistent_root.add_child(chat)
 # Your Settings → Streamer Mode → Chat button:
 chat.open_settings()
 ```
+
+Keep the controller and chat under a persistent root (or your existing autoload)
+so changing gameplay scenes does not destroy the connection. Chat continues
+polling while the scene tree is paused. This is an in-game overlay: capturing
+the Godot game includes chat, but switching to another desktop application does
+not put this overlay over that application. Starting a broadcast does not
+automatically authorize a channel; connect it and enable Streamer Mode first.
 
 The addon never reads gameplay input except Alt-drag on the visible chat panel.
 Your game owns menu opening, pause behavior, and its existing master controller.

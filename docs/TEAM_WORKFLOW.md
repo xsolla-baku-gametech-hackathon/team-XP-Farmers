@@ -1,37 +1,46 @@
 # Team workflow
 
-`twitch-chat` now restores Godot and supplies an in-game chat addon. No branches
-have been merged. Do not merge until the product owner explicitly requests it.
+`twitch-chat` is aligned with the native Godot feature structure. No branches
+have been merged; do not merge until the product owner requests it.
 
-The shared foundation files were restored from common ancestor `c79fda9`.
-`StreamerModeController`, `demo/main.gd`, `demo/demo_services.gd` and the arena retain
-that foundation's implementation. The new default scene is
-`demo/chat_integration.tscn`, a runnable chat integration example. Original
-`demo/main.tscn` remains available for foundation regression checks.
+## Reviewed branch snapshots
 
-## Later integration with audio/privacy
+- Chat baseline: `a8a7f92` (already had Godot chat and three-provider relay).
+- Audio: `0fbc00f` (`stream-safe-audio`), reusable shared UI and audio adapter.
+- Privacy: `0dc76e8` (`privacy-mask-copy`), privacy addon and separate control panel.
 
-Review and combine features only when authorized. Restore no desktop companion.
-Keep one controller, instantiate `StreamerChat`, and bind it to that controller.
-The chat addon does not depend on either feature branch. When using audio's
-`StreamerModePanel`, call `set_feature_available(Controller.CHAT, true)` and route
-`chat.status_changed` to `set_feature_status(Controller.CHAT, detail)`. Add a Chat
-settings button wired to `chat.open_settings()`. Keep the chosen final game's
-main scene when resolving the root `project.godot` main-scene setting.
+All three use `addons/streamer_mode/` and the same core controller. Chat now uses
+`demo/main.tscn` as its default, installs its component in `demo/demo_services.gd`,
+and displays all feature slots through audio's unchanged shared UI files.
+`demo/main.gd` follows audio's shared layout with chat-specific wiring added.
+Only chat is marked available in this branch. Audio and privacy implementation
+files are not copied. `demo/chat_integration.tscn` remains a small chat example.
 
-The default chat demo pauses movement while its settings panel is open; the
-reusable addon leaves gameplay/pause control to its host. Test master mode,
-individual preferences, closing settings, masking, audio switching and new chat
-messages together before merging. This branch does not claim those combined
-features have been runtime-tested.
+## Later integration
 
-## Ownership
+1. Fetch latest branches; these hashes are reviewed snapshots, not live status.
+2. Combine audio/privacy/chat setup in `demo/demo_services.gd` while retaining one
+   controller. Keep each feature's status forwarding and gameplay hooks.
+3. In `demo/main.gd`, keep one StreamerModePanel, mark each installed feature
+   available, and forward its status. Keep Chat settings wired to open_settings.
+4. Keep the chosen game's main scene. Preserve the shared UI files unchanged
+   unless the integration owner intentionally updates them across branches.
+5. Place the controller/services under a persistent root for level changes.
+   Chat processes while paused; the host decides whether a settings menu pauses
+   gameplay. This demo pauses arena movement while chat settings are open.
+6. Run each feature suite and test all three together before merging. Combined
+   audio/privacy/chat behavior has not been runtime-tested by this branch.
 
-- `addons/streamer_mode/chat/`: native Godot chat UI/client.
-- `addons/streamer_mode/core/`: shared mode state.
-- `server/`: platform OAuth, subscriptions, encrypted sessions, read-only chat API.
-- `public/`: browser account connection and relay preview.
-- `tests/`: Godot regression tests and Node provider tests.
+## Ownership and capture scope
 
-Never commit provider keys, private chat links, OAuth callbacks or runtime data.
-See README for automated checks and DEPLOYMENT for live acceptance.
+- `addons/streamer_mode/chat/`: native Godot client, overlay, settings, composition.
+- `addons/streamer_mode/core/`: unchanged shared mode state.
+- `addons/streamer_mode/ui/`: shared audio-compatible feature panel.
+- `server/`: platform OAuth, subscriptions, sessions and read-only chat API.
+- `public/`: browser authorization and relay preview.
+- `tests/`: Godot integration and Node provider tests.
+
+The overlay appears in captured Godot gameplay. It is not an OS-wide always-on-top
+window over other apps. A connected channel and enabled chat are required; simply
+starting a livestream does not authorize or connect it. Never commit provider
+keys, private chat links, OAuth callbacks or runtime data.
