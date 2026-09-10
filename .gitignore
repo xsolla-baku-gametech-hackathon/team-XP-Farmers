@@ -1,9 +1,10 @@
-.godot/
-.artifacts/
-builds/
-export_credentials.cfg
 .env
 .env.*
 !.env.example
+data/
+*.enc
+*.enc.tmp
 *.log
-
+node_modules/
+.DS_Store
+coverage/

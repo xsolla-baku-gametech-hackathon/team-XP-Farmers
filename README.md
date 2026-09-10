@@ -1,70 +1,122 @@
-﻿# Streamer Mode SDK
+# XP Farmers — Chat Studio
 
-A reusable Godot addon that gives developers one switch for streamer features,
-with a small playable game to demonstrate integration. Built by Team XP Farmers
-for the Xsolla Baku GameTech Hackathon.
+Standalone **Kick + Twitch live chat overlay** for streamers. Open Chat Studio,
+connect your own channel, enable **Streamer Mode**, and add your private overlay
+link to OBS. No Godot, game integration, extension or desktop build is required.
 
-## Run
+This `twitch-chat` branch replaces the previous Godot addon. It has **not been
+merged** into `main` or the other feature branches.
 
-1. Use **Godot 4.7.2 standard**, with GDScript (no .NET required).
-2. Import `project.godot` in the Godot Project Manager.
-3. Press **F5**. Move using WASD or arrow keys and collect green shards.
-4. Click the Streamer Mode button or press Escape to change the shared state.
+## Run locally
 
-The project uses the Compatibility renderer and no external packages or plugins.
-No Twitch account is needed for the foundation demo.
-
-## Current milestone
-
-- Playable 2D collection arena and Streamer Mode panel.
-- Reusable controller with master toggle, feature preferences, and signals.
-- Explicit integration points for audio, privacy and Twitch chat.
-- Automated controller and demo wiring checks.
-
-Privacy, music replacement and chat are not implemented on the foundation branch.
-Their controls are labeled as pending; the sample lobby code is fictional.
-
-## Product scope
-
-A game developer integrates this addon into a Godot project. They identify private
-UI, supply appropriately licensed replacement music, and configure Twitch access.
-Both the player and viewers receive the same modified interface and audio.
-This is not an automatic overlay for arbitrary installed games. It reduces
-specific exposures; it cannot guarantee freedom from copyright claims or stream
-sniping. Separate engine adapters would be needed for Unity and Unreal.
-
-## Addon integration
-
-Copy `addons/streamer_mode/` into another Godot project. Create a Node with
-`core/streamer_mode_controller.gd` attached. Pass that controller to feature
-components; connect the game's settings to `set_enabled(bool)`. No autoload or
-editor plugin is required. The addon has no dependency on `demo/`.
-
-See [team workflow and public API](docs/TEAM_WORKFLOW.md) for branch ownership,
-component contracts and how to start feature work. Each feature folder includes
-its handoff notes. Use standalone feature scenes before editing the shared demo.
-
-## Checks
-
-Replace `godot` with the path to your Godot console executable if needed:
+Install Node.js 22 or newer, then run from the repository root:
 
 ```sh
-godot --headless --path . --editor --import --quit
-godot --headless --path . --script res://tests/test_foundation.gd
+node server/index.mjs
 ```
 
-Optional screenshots (requires a graphical session):
+Open **http://localhost:8787**. The studio works immediately with clearly labeled
+sample messages for styling. Live connections require the service owner's provider
+configuration below. There are no npm dependencies or frontend build steps.
+
+To load a private `.env` file:
 
 ```sh
-godot --path . --script res://tests/capture_demo.gd
+cp .env.example .env
+node --env-file=.env server/index.mjs
 ```
 
-Screenshots go to the ignored `.artifacts/` folder. Commit source and `.uid`
-files, not `.godot/` caches, exports, account credentials or access tokens.
+`npm start`, `npm run dev`, and `npm test` are optional shortcuts.
 
-## Demo completion criteria
+## Streamer workflow
 
-One toggle must activate integrated features: switch managed music while keeping
-sound effects, conceal private text while preserving Copy, and show actual Twitch
-chat. Verify a real OBS recording and then integrate the addon into a second
-small project. These are upcoming milestones, not foundation capabilities.
+1. Open the service's Chat Studio URL and choose **Kick** or **Twitch**.
+2. Click **Connect** and authorize your own account on the platform's sign-in page.
+3. Set background opacity (0–100%), text size and corner position. Default opacity is **35%**.
+4. Leave **Streamer Mode** on and click **Copy link**.
+5. In OBS, add **Sources → Browser**, paste the link, and set width **1920**, height **1080**.
+6. Send a message in your platform's chat. The overlay shows the actual sender's
+   username and message. The page surrounding the chat is transparent; changing
+   background opacity does not dim usernames or text.
+
+The overlay keeps working when the studio tab is closed. Changing settings updates
+existing OBS sources within about a second. Streamer Mode off hides the overlay and
+clears history; messages sent while off are not replayed. Disconnect stops reception
+and invalidates the overlay. **Replace overlay link** revokes a shared link without
+disconnecting the channel; update OBS afterwards.
+
+The overlay appears in the **OBS scene and resulting stream**. This version does
+not create an always-on-top window over a game on the streamer's desktop. Use an
+OBS preview or a second display to see it locally.
+
+## Service owner setup
+
+Run one Node service behind an HTTPS reverse proxy. Set `PUBLIC_URL` to its exact
+public origin and configure one or both platforms. Each streamer uses their own
+OAuth session; provider secrets belong only on your server.
+
+| Provider | Application configuration |
+| --- | --- |
+| Kick | Set `KICK_CLIENT_ID` and `KICK_CLIENT_SECRET`. Enable webhooks. Redirect URI: `https://YOUR-DOMAIN/oauth/kick/callback`. Webhook: `https://YOUR-DOMAIN/webhooks/kick`. Scopes: `user:read events:subscribe`. |
+| Twitch | Register a confidential application. Set `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET`. Redirect URI: `https://YOUR-DOMAIN/oauth/twitch/callback`. Scope: `user:read:chat`. EventSub WebSockets receive the connected broadcaster's own chat. |
+
+GitHub stores and distributes the code. **GitHub Pages alone cannot run this
+service**: OAuth token exchange, Kick webhooks, Twitch connections and persistence
+require the Node server. See [deployment instructions](docs/DEPLOYMENT.md).
+
+For durable sessions, set `DATA_FILE` and `SESSION_SECRET`. The service encrypts
+provider tokens, settings and overlay keys using AES-256-GCM. Without `DATA_FILE`,
+development sessions are memory-only and links expire on restart. Production mode
+refuses to start without HTTPS and encrypted persistence.
+
+## Behavior and limits
+
+- Separate owner cookies and read-only overlay keys; OAuth tokens never reach the browser.
+- Overlay keys are URL fragments, so they are not sent in page URLs or referrers.
+  The overlay sends its key only in the authorization header to this service.
+- Settings survive reloads. With encrypted storage, sessions and links survive
+  server restarts. Chat contents and pending sign-ins are never saved to disk.
+- Up to **100 active sessions**, seven-day idle expiry, 100 messages in memory per
+  session, last 12 rendered, and messages age out after two minutes. This is a
+  single-process service; do not run replicas against the same data file.
+- Automatic provider-token refresh, Twitch hourly token validation, EventSub
+  reconnect/keepalive handling, Kick signature verification and delivery deduplication.
+- Twitch message deletion, user-message clearing and chat clearing remove visible messages.
+  **Kick moderation deletion is not implemented**; messages expire after two minutes.
+- Text and usernames render literally, including HTML-like content. Emotes render
+  as text. No chat-sending capability is requested.
+- HTTP polling adds about one second of latency. Network interruptions blank the
+  overlay until reconnection; messages missed during downtime cannot be recovered.
+- This is a deployable product foundation. Billing, license enforcement, account
+  recovery, multi-replica storage, commercial support and load certification are not included.
+
+## Validation
+
+```sh
+node --test tests/*.test.mjs
+```
+
+Tests cover OAuth browser binding/replay, token isolation, multiple streamers,
+malformed input/CSRF, signed Kick events, message limits, opacity/mode settings,
+link revocation, encrypted restart persistence, Twitch EventSub subscriptions,
+reconnect and moderation. Provider calls are mocked in automated tests.
+
+Before selling access, configure real provider apps and run the live acceptance
+steps in [deployment instructions](docs/DEPLOYMENT.md), including an OBS recording.
+Passing mocked tests does not certify real-account delivery.
+
+## Azərbaycanca qısa istifadə
+
+Godot lazım deyil. Paneli açın → Kick/Twitch hesabınızı qoşun → **Streamer Mode**
+aktiv edin → **Copy link** → OBS-də **Browser Source** əlavə edib linki yapışdırın.
+Çata yazan şəxsin username-i hər mesajda görünür. Fonun şəffaflığını **Background
+opacity** ilə dəyişin; yazıların görünməsi dəyişmir. Kod GitHub-dadır, canlı xidmət
+üçün isə HTTPS üzərindən işləyən Node server və platforma tətbiq açarları lazımdır.
+
+## Protocol references
+
+- [Kick OAuth](https://docs.kick.com/getting-started/generating-tokens-oauth2-flow)
+- [Kick webhook security](https://docs.kick.com/events/webhook-security)
+- [Twitch EventSub WebSockets](https://dev.twitch.tv/docs/eventsub/handling-websocket-events/)
+- [Twitch chat events](https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/#channelchatmessage)
+- [Twitch token validation](https://dev.twitch.tv/docs/authentication/validate-tokens/)

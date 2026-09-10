@@ -1,0 +1,30 @@
+name: Chat Studio tests
+on:
+  push:
+    branches: [twitch-chat]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: node --test tests/*.test.mjs
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --tag xp-chat:ci .
+      - name: Check container startup and HTTP health
+        run: |
+          docker run --detach --rm --name xp-chat-ci --publish 127.0.0.1:8787:8787 --env NODE_ENV=development --env DATA_FILE= --env PUBLIC_URL=http://localhost:8787 xp-chat:ci
+          trap 'docker stop xp-chat-ci' EXIT
+          curl --fail --retry 10 --retry-connrefused --retry-delay 1 http://127.0.0.1:8787/health

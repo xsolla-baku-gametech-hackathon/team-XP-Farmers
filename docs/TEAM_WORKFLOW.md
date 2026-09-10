@@ -1,64 +1,32 @@
 # Team workflow
 
-Use Godot 4.7.2 standard (GDScript), Compatibility renderer, Windows first.
-The product is an integrated Godot addon, demonstrated by a small collection game.
-It cannot modify arbitrary installed games.
+The `twitch-chat` branch now contains the standalone Chat Studio product. Godot
+scenes, addon scripts and the playable engine demo were removed from this branch
+at the product owner's request. Other feature branches retain their history.
 
-## Ownership
+Do not merge this migration until the product owner asks. Do not force-push shared
+branches. Review engine removal explicitly with the owners of `privacy-mask-copy`,
+`stream-safe-audio` and `godot-sdk-foundation`: their Godot adapters cannot be wired
+directly into a browser overlay.
 
-| Branch | Owns |
+## Modules
+
+| Path | Responsibility |
 | --- | --- |
-| godot-sdk-foundation | project.godot, addon core, demo/, shared docs |
-| privacy-mask-copy | addons/streamer_mode/privacy/, tests/privacy/ |
-| stream-safe-audio | addons/streamer_mode/audio/, tests/audio/ |
-| twitch-chat | addons/streamer_mode/chat/, tests/chat/ |
+| `public/` | Browser studio and transparent OBS overlay; literal message rendering |
+| `server/app.mjs` | Session isolation, OAuth callbacks, settings and overlay endpoints |
+| `server/providers/` | Official Kick and Twitch provider adapters |
+| `server/storage.mjs` | Encrypted, single-process session persistence |
+| `tests/` | Node built-in tests with mocked provider traffic |
 
-The integration owner wires completed components into demo/. Avoid editing
-project.godot or the shared scene concurrently. Each teammate uses a separate
-clone, commits their source and .uid files, and excludes .godot/ caches.
+Run `node --test tests/*.test.mjs` before pushing. Keep app keys in a local `.env`
+or managed server secrets. Never commit credentials, runtime data, overlay links,
+OAuth query strings, local screenshots or development fixtures.
 
-## Starting a feature
+Browser verification should include studio load, connection failure feedback,
+opacity 0/35/100 with opaque text, each corner, mode off/on, reload persistence,
+copy/open/replace link, disconnect, Unicode usernames, literal HTML-like chat text,
+mobile layout and an isolated OBS browser context with no owner cookie.
 
-After the foundation PR is merged into main:
-
-```sh
-git fetch origin
-git switch privacy-mask-copy
-git merge origin/main
-```
-
-Substitute your branch name. If the foundation PR is still awaiting review, merge
-origin/godot-sdk-foundation instead, then target that branch with your feature PR
-until the foundation lands. Do not force-push shared branches.
-
-Import project.godot. Run the project with F6 only for a feature test scene;
-use F5 for the full demo. Push small working commits and open a PR. Include a
-short description and the checks performed. Keep network credentials local.
-
-## Shared API
-
-```gdscript
-var controller: StreamerModeController
-controller.set_enabled(true)
-controller.set_feature_enabled(StreamerModeController.AUDIO, false)
-controller.state_changed.connect(_sync)
-
-func _sync() -> void:
-    var active := controller.is_feature_active(StreamerModeController.PRIVACY)
-    # Apply to your component.
-```
-
-The controller combines master enable state with per-feature preferences; it does
-not implement features. Bind components explicitly (no global autoload required).
-Synchronize immediately after binding so late-added components receive current
-state. Disconnect before rebinding or removing a component. Changing preferences
-while the mode is off takes effect on the next enable.
-
-## Order of integration
-
-1. Foundation with runnable demo and controller checks.
-2. Audio feature, playback checks and demo integration.
-3. Privacy component and real clipboard check.
-4. Twitch connection and actual channel message.
-5. Second-game integration and OBS recording verification.
-
+Live release acceptance is documented in `DEPLOYMENT.md`. This migration does not
+implement the other branches' privacy or audio features.
