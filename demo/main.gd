@@ -4,6 +4,8 @@ const Controller = preload("res://addons/streamer_mode/core/streamer_mode_contro
 const Arena = preload("res://demo/arena.gd")
 const Services = preload("res://demo/demo_services.gd")
 const PrivacyEngine = preload("res://addons/streamer_mode/privacy/privacy_engine.gd")
+const PrivacyCopyField = preload("res://addons/streamer_mode/privacy/privacy_copy_field.gd")
+const PrivacyControlPanel = preload("res://addons/streamer_mode/privacy/privacy_control_panel.gd")
 const INK := Color("e6edf0")
 const MUTED := Color("8fa4b0")
 const LIME := Color("b4ee93")
@@ -21,6 +23,9 @@ var score_label: Label
 var lobby_card: PanelContainer
 var lobby_status: Label
 var privacy_engine: PrivacyEngine
+var join_code_field: PrivacyCopyField
+var control_panel: PrivacyControlPanel
+var panel_toggle: Button
 
 
 func _ready() -> void:
@@ -37,9 +42,27 @@ func _ready() -> void:
 	privacy_engine.name = "PrivacyEngine"
 	add_child(privacy_engine)
 	privacy_engine.setup(controller)
-	# Strategy B: the sample lobby card is always private while masking is on.
-	privacy_engine.register_node(&"lobby", lobby_card, {"pixel_size": 18.0})
+	# Strategy B, explicit: the join code is masked but stays copyable.
+	join_code_field.bind(privacy_engine, &"join_code")
+	# Strategy B, by group: the "SESSION" line is tagged privacy_sensitive and
+	# auto-registered (the scanner's conservative patterns miss that string).
+	privacy_engine.refresh_group()
+	# Dev panel: create and exclude it before scanning starts so it is never
+	# itself a scan target or a mask target.
+	control_panel = PrivacyControlPanel.new()
+	control_panel.name = "PrivacyControlPanel"
+	control_panel.anchor_left = 1.0
+	control_panel.anchor_right = 1.0
+	control_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	control_panel.offset_left = -318
+	control_panel.offset_right = -30
+	control_panel.offset_top = 96
+	control_panel.hide()
+	add_child(control_panel)
+	control_panel.setup(privacy_engine)
 	# Strategy A: scan the demo UI for codes and IPs (finds the match-server line).
+	# Allow-list the section caption so the "lobby" keyword rule ignores it.
+	privacy_engine.allow_text("DEMO LOBBY   /   SAMPLE DATA")
 	privacy_engine.set_scan_root(self)
 	privacy_engine.set_scanning(true)
 	controller.state_changed.connect(_refresh)
@@ -97,10 +120,16 @@ func _build_ui() -> void:
 	lobby_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lobby_row.add_child(lobby_text)
 	lobby_text.add_child(_label("DEMO LOBBY   /   SAMPLE DATA", 11, MUTED))
-	lobby_text.add_child(_label("XP-4829", 24))
+	join_code_field = PrivacyCopyField.new()
+	join_code_field.caption = "JOIN CODE"
+	join_code_field.value = "XP-4829"
+	lobby_text.add_child(join_code_field)
 	lobby_status = _label("Privacy + Copy\nVisible on stream", 12, MUTED)
 	lobby_row.add_child(lobby_status)
 	game.add_child(_label("MATCH SERVER   203.0.113.42:7777", 11, MUTED))
+	var session_line := _label("SESSION   KX7Q-22F1", 11, MUTED)
+	session_line.add_to_group("privacy_sensitive")
+	game.add_child(session_line)
 	var sidebar := _column(14)
 	sidebar.custom_minimum_size.x = 350
 	content.add_child(sidebar)
@@ -111,8 +140,11 @@ func _build_ui() -> void:
 	settings_card.add_child(settings)
 	settings.add_child(_label("One switch. Your settings.", 22))
 	settings.add_child(_label("Changes apply to player and viewers.", 13, MUTED))
+	var mode_row := _row(8)
+	settings.add_child(mode_row)
 	mode_button = Button.new()
 	mode_button.custom_minimum_size.y = 52
+	mode_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mode_button.toggle_mode = true
 	mode_button.add_theme_stylebox_override("normal", _style(Color("b4ee93")))
 	mode_button.add_theme_stylebox_override("hover", _style(Color("c8f6b0")))
@@ -120,7 +152,15 @@ func _build_ui() -> void:
 	for state in ["font_color", "font_hover_color", "font_pressed_color"]:
 		mode_button.add_theme_color_override(state, Color("12241c"))
 	mode_button.toggled.connect(controller.set_enabled)
-	settings.add_child(mode_button)
+	mode_row.add_child(mode_button)
+	panel_toggle = Button.new()
+	panel_toggle.text = "PANEL"
+	panel_toggle.toggle_mode = true
+	panel_toggle.focus_mode = Control.FOCUS_NONE
+	panel_toggle.custom_minimum_size = Vector2(64, 52)
+	panel_toggle.tooltip_text = "Show the privacy control panel"
+	panel_toggle.toggled.connect(func(on: bool): control_panel.visible = on)
+	mode_row.add_child(panel_toggle)
 	status_label = _label("", 12, MUTED)
 	settings.add_child(status_label)
 	settings.add_child(HSeparator.new())

@@ -1,19 +1,22 @@
-# Privacy components
+# Privacy module
 
-Owner branch: `privacy-mask-copy`.
+Part of the **Streamer Mode SDK** addon (`addons/streamer_mode/`). Everything
+renders inside the game's own viewport on a high `CanvasLayer`; nothing is an
+OS-level overlay window, so it works the same under the Compatibility and
+Forward+ renderers with no window settings.
 
-Everything here renders **inside the game's own viewport** on a high
-`CanvasLayer`. Nothing is an OS-level overlay window, so there are no
-per-pixel-transparency, borderless or always-on-top settings and the behaviour
-is identical under the Compatibility and Forward+ renderers.
+| File | Class | Role |
+| --- | --- | --- |
+| `privacy_engine.gd` | `PrivacyEngine` (`CanvasLayer`) | Automated masking. Scans text and/or takes registered regions, snaps a blur mask over each active target, fades masks when the target goes away. Gated by `StreamerModeController`. |
+| `privacy_blur.gdshader` | - | `canvas_item` shader: pixelate + 5x5 box blur of `hint_screen_texture` with a tint. |
+| `privacy_blur_mask.gd` | `PrivacyBlurMask` (`Control`) | Non-interactive mask instance; eases to a target rect, fades, frees itself. Owned by the engine. |
+| `privacy_copy_field.gd` | `PrivacyCopyField` (`Control`) | Labelled value + Copy button. The value is masked; Copy always writes the real string to the clipboard. |
+| `privacy_control_panel.gd` | `PrivacyControlPanel` (`PanelContainer`) | Dev/streamer panel: active-mask list, scan toggle + interval, live blur sliders, allow-list editor. |
+| `privacy_mask.gd` / `mask_region.gd` | `PrivacyMaskComponent` / `PrivacyMaskRegion` | The earlier **manual** drag/resize/opacity mask. Kept for direct-control use; not in the demo. |
 
-| File | Role |
-| --- | --- |
-| `privacy_engine.gd` | `PrivacyEngine` (`CanvasLayer`). **Automated** masking. Scans text nodes and/or takes explicit region registrations, snaps a blur mask over each active target, fades masks out when the target goes away. Gated by `StreamerModeController`. |
-| `privacy_blur.gdshader` | `canvas_item` shader. Pixelates + box-blurs `hint_screen_texture` and tints it. |
-| `privacy_blur_mask.gd` | `PrivacyBlurMask` (`Control`). Non-interactive; carries the shader, eases its rect toward a target, fades in/out, frees itself when gone. Instances are owned by `PrivacyEngine`. |
-| `privacy_mask.gd` | `PrivacyMaskComponent` (`CanvasLayer`). **Manual** mask: one translucent rectangle the streamer drags, resizes and fades. Kept for direct-control use; not mounted in the demo. |
-| `mask_region.gd` | `PrivacyMaskRegion` (`Control`). The draggable/resizable rectangle used by `PrivacyMaskComponent`. |
+The `plugin.cfg` / `plugin.gd` at the addon root add an optional editor tool
+(see "Tagging nodes as Private" below). The runtime classes work whether or not
+the plugin is enabled.
 
 ## PrivacyEngine
 
@@ -21,65 +24,146 @@ is identical under the Compatibility and Forward+ renderers.
 const PrivacyEngine := preload("res://addons/streamer_mode/privacy/privacy_engine.gd")
 
 var engine := PrivacyEngine.new()
-ui_root.add_child(engine)
+ui_root.add_child(engine)          # or an autoload, to survive scene changes
 engine.setup(controller)
-
-# Strategy B - reliable: explicit private regions.
-engine.register_node(&"lobby", lobby_card, {"pixel_size": 18.0})
-engine.register_rect_provider(&"hud", func(): return $Hud/Seed.get_global_rect())
-
-# Strategy A - opt-in assist: RegEx scan of Label/RichTextLabel/LineEdit text.
-engine.set_scan_root(ui_root)
-engine.set_scanning(true)
-engine.add_pattern("\\bSEED [0-9A-F]{8}\\b")
-engine.allow_text("XP FARMERS")
 ```
 
-### Public API
+### Detection
+
+**Strategy B - registered regions (reliable).** Explicit and always masked
+while the feature is active; the mask follows the target's global rect through
+layout and window resizes.
+
+```gdscript
+engine.register_node(&"lobby", $Hud/LobbyCard)
+engine.register_rect_provider(&"seed", func(): return $Hud/Seed.get_global_rect())
+# ...or tag a Control into the "privacy_sensitive" group (auto-registered).
+```
+
+**Strategy A - node scanner (opt-in, best effort).** Walks
+`Label`/`RichTextLabel`/`LineEdit` under one or more scan roots and RegEx-matches
+visible text. **It cannot see text drawn with `_draw()`, text in textures, or
+strings that match no pattern, and it can over-match incidental text.** Register
+anything that must not leak with Strategy B.
+
+```gdscript
+engine.set_scan_root(ui_root)          # single root
+engine.set_scan_roots([hud, {"node": minimap_root, "to_screen": _map_minimap}])
+engine.add_pattern("\\bSEED [0-9A-F]{8}\\b")
+engine.allow_text("PRESS START")       # exact strings the scanner ignores
+engine.set_scanning(true)
+```
+
+Default patterns: `AB-1234`-style codes, IPv4 with optional port, and
+`room`/`lobby`/`invite` followed by a value.
+
+### Full API
 
 | Member | Purpose |
 | --- | --- |
-| `setup(controller)` | Bind/rebind the controller. Idempotent. Disconnects on `_exit_tree()`. |
-| `register_node(id, Control, params={})` | Strategy B: mask this node while the feature is active; the mask follows its global rect. |
-| `register_rect_provider(id, Callable, params={})` | Strategy B: mask a `Rect2` returned each frame by `Callable`; return a zero-size rect to hide it. |
-| `unregister(id)` | Retire a region; its mask fades out. |
-| `set_scanning(bool)` / `set_scan_root(Node)` | Enable Strategy A and choose the subtree it walks. |
-| `add_pattern(String)` / `allow_text(String)` | Extra RegEx pattern / exact string that is never masked. |
-| `refresh()` | Force an immediate scan pass (e.g. right after a game state change). |
-| `active_region_count()` / `is_active()` | State for tests and host UI. |
-| `mask_params`, `target_margin`, `scan_interval`, `scan_names`, `name_keywords` | Exports. |
-| signals `region_masked(id, rect)`, `region_cleared(id)`, `match_found(text, rect)` | For host UI / auditing. |
+| `setup(controller)` | Bind/rebind the controller. Idempotent. |
+| `register_node(id, control, params={}, to_screen:=Callable())` | Region from a node. `to_screen(Rect2)->Rect2` maps a rect from a SubViewport into main-viewport pixels. |
+| `register_rect_provider(id, callable, params={})` | Region from a `Rect2` (main-viewport pixels) returned each frame. |
+| `unregister(id)` | Retire a region; its mask fades. |
+| `set_scan_root(node)` / `set_scan_roots(array)` / `add_scan_root(node, to_screen:=Callable())` | One or many scan roots. Array entries are `Node` or `{node, to_screen}`. |
+| `set_scanning(bool)` / `is_scanning()` | Enable/disable Strategy A. Turning it **off retires every scanner-found region** (masks fade); registered regions are untouched. Turning it **on re-indexes**, so nodes added while it was off are picked up. |
+| `add_pattern(str)` | Extra RegEx. |
+| `allow_text(str)` / `remove_allowed_text(str)` / `clear_allowed_texts()` / `get_allowed_texts()` | Allow-list. |
+| `set_mask_param(key, value)` | Update a shader default **and every mask already on screen**. |
+| `refresh()` | Force one full scan pass + rect refresh now. |
+| `refresh_group()` | Re-scan the `privacy_sensitive` group (after code-built tagging). |
+| `exclude_subtree(node)` | Never scan or mask anything under this node. |
+| `active_region_count()` / `is_active()` / `get_scan_stats()` | State for tests and the control panel. |
+| signals `region_masked(id, rect)`, `region_cleared(id)`, `match_found(text, rect)` | Unchanged. |
 
-Default patterns: code-like `AB-1234`, IPv4 with optional port, and
-`room`/`lobby`/`invite` followed by a value. Scanner runs on `scan_interval`
-(0.25 s), keeps its node set live via `SceneTree.node_added`/`node_removed`, and
-skips matches whose rect is already inside a registered region.
+Exports: `mask_params`, `target_margin`, `scan_interval`, `scan_names`,
+`name_keywords`, `scan_node_budget` (round-robin batch size, default 400),
+`auto_register_from_group` (default `true`), `privacy_group` (default
+`&"privacy_sensitive"`), `rebind_scan_root_on_scene_change` (default `true`).
 
-### Reliability
+### Robustness
 
-Strategy A is **best effort**. It cannot see text drawn with `_draw()`, text
-baked into textures, or strings that do not match a pattern, and it can
-over-match incidental text. Register anything that must not leak with
-Strategy B. This mirrors the addon's stated scope: the developer identifies
-private UI; the tool reduces specific exposures, it does not guarantee them.
+- **Scene swaps.** The engine listens to `SceneTree.tree_changed`. When
+  `current_scene` changes and `rebind_scan_root_on_scene_change` is on, any scan
+  root that was the old scene is replaced with the new one and re-indexed. Put
+  the engine in an autoload for this to matter; an engine inside the swapped
+  scene is recreated with it.
+- **Many text nodes.** Above `scan_node_budget` the scanner processes nodes in
+  round-robin batches, one batch per `scan_interval`, so a pass stays cheap
+  regardless of scene size. A match that stops matching is reaped at the end of
+  its sweep (`ceil(indexed / budget)` ticks) instead of the next tick.
+- **Multiple viewports.** Pass several roots; supply `to_screen` per SubViewport
+  root so masks land in the right place on the composited screen. Without it a
+  SubViewport root's rects are assumed to be in main-viewport space.
 
-## Screen-read setup
+### Screen-read setup
 
-`PrivacyEngine` adds a `BackBufferCopy` (`COPY_MODE_RECT`, tracking the union of
-active mask rects; `DISABLED` when none) as its first child, so
-`hint_screen_texture` has fresh contents on every renderer and only the needed
-area is copied. Masks are drawn after the copy, so they never sample
-themselves or each other.
+The engine adds a `BackBufferCopy` (`COPY_MODE_RECT`, tracking the union of
+active mask rects; `DISABLED` when none) as its first child. Masks are drawn
+after it, so they never sample themselves or each other.
 
-## Demo wiring (`demo/main.gd`)
+## PrivacyCopyField
 
-The "Protect sensitive information" checkbox is enabled and bound to
-`set_feature_enabled(PRIVACY, ...)`. `PrivacyEngine` registers the sample lobby
-card (Strategy B) and scans the demo UI (Strategy A), which also masks the
-`MATCH SERVER 203.0.113.42:7777` line. Sidebar and lobby text update live.
+```gdscript
+var field := PrivacyCopyField.new()
+field.caption = "JOIN CODE"
+field.value = "XP-4829"
+container.add_child(field)
+field.bind(engine, &"join_code")   # registers only the value sub-rect
+field.copied.connect(_on_code_copied)
+```
+
+Only `get_mask_target()` (the value) is registered, so the Copy button and
+caption are never blurred. `copy()` calls `DisplayServer.clipboard_set()` with
+the stored `value` - never the rendered text - and emits `copied(value)` with a
+short "Copied!" button state. Works identically whether the value is masked or
+not.
+
+## PrivacyControlPanel
+
+```gdscript
+var panel := PrivacyControlPanel.new()
+ui_root.add_child(panel)
+panel.setup(engine)   # calls engine.exclude_subtree(panel) so it is never masked
+```
+
+Drives only the public API. As a `PanelContainer` it blocks input only inside
+its own rect, so the game and the masks stay usable while it is open.
+
+## Tagging nodes as Private (editor tool)
+
+1. In **Project Settings > Plugins**, enable **Streamer Mode SDK**.
+2. Select one or more `Control` nodes in the scene tree.
+3. **Project > Tools > "Privacy: tag selected node(s) as Private"** adds them to
+   the `privacy_sensitive` group (persisted in the `.tscn`). Untag with the
+   sibling menu item.
+4. At runtime a `PrivacyEngine` with `auto_register_from_group` on (default)
+   calls `register_node` for every node in that group - no code per node.
+   `register_node` / `register_rect_provider` remain the API for dynamic cases.
+   For a node tagged from code *after* it entered the tree, call
+   `engine.refresh_group()`.
+
+## Installing in another project
+
+Copy the whole `addons/streamer_mode/` folder in. `plugin.cfg` makes it a normal
+installable plugin. `class_name` globals (`PrivacyEngine`, `PrivacyBlurMask`,
+`PrivacyCopyField`, `PrivacyControlPanel`, `StreamerModeController`, ...) are
+registered by the editor's project scan regardless of whether the plugin is
+enabled; enabling it only adds the tagging menu items. Nothing here depends on
+`res://demo/`.
+
+## Deviations from the earlier contract
+
+- `TEAM_WORKFLOW.md` said "No autoload or editor plugin is required." Still true
+  at runtime: the plugin is optional and only adds an editor convenience. An
+  autoload is only needed if you want the engine to outlive scene swaps.
+- `set_mask_param()` is the way to change blur on live masks. Assigning
+  `engine.mask_params[...]` directly still works but only affects masks spawned
+  afterwards.
+- `set_scan_root(node)` is unchanged; internally it is now
+  `set_scan_roots([node])`.
 
 ## Still open
 
-The completion criterion "conceal private text while preserving Copy" needs a
-private-field widget with a `DisplayServer.clipboard_set()` Copy button, masked
-by one of these components. Not implemented yet.
+"Conceal but keep Copy" is done (`PrivacyCopyField`). No known gaps remain in
+the privacy module for the hackathon scope.

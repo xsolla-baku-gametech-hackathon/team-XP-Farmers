@@ -20,6 +20,8 @@ func _run() -> void:
 	await _test_scanner_respects_allow_list()
 	await _test_scanner_dedupes_against_registered_region()
 	await _test_scanner_clears_when_text_stops_matching()
+	await _test_scanning_toggle_clears_and_restores()
+	await _test_nodes_added_while_scanning_off_are_found_on_reenable()
 	print("Privacy engine checks: %s" % ("PASS" if failures == 0 else "FAIL"))
 	quit(1 if failures else 0)
 
@@ -226,6 +228,74 @@ func _test_scanner_clears_when_text_stops_matching() -> void:
 	await process_frame
 	await process_frame
 	_check(engine.active_region_count() == 0, "Mask clears once the text no longer matches")
+
+	sv.free()
+
+
+func _test_scanning_toggle_clears_and_restores() -> void:
+	var sv := _viewport()
+	var pair := _make(sv)
+	var controller: Node = pair[0]
+	var engine = pair[1]
+	var host := Control.new()
+	host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	sv.add_child(host)
+	_label(host, "TEAM-3140", Vector2(40, 40))
+	var pinned := _label(host, "pinned area", Vector2(40, 140))
+
+	engine.register_node(&"pinned", pinned)
+	engine.set_scan_root(host)
+	engine.set_scanning(true)
+	controller.set_enabled(true)
+	await process_frame
+	engine.refresh()
+	await process_frame
+	await process_frame
+	_check(engine.active_region_count() == 2, "Scanner match plus registered region are both masked")
+
+	engine.set_scanning(false)
+	await process_frame
+	await process_frame
+	_check(engine.active_region_count() == 1, "Turning scanning off clears scanner masks")
+	_check(not engine.is_scanning(), "is_scanning() reports off")
+
+	engine.set_scanning(true)
+	await process_frame
+	engine.refresh()
+	await process_frame
+	await process_frame
+	_check(engine.active_region_count() == 2, "Turning scanning back on restores the scanner mask")
+	_check(engine.is_scanning(), "is_scanning() reports on")
+
+	sv.free()
+
+
+func _test_nodes_added_while_scanning_off_are_found_on_reenable() -> void:
+	var sv := _viewport()
+	var pair := _make(sv)
+	var controller: Node = pair[0]
+	var engine = pair[1]
+	var host := Control.new()
+	host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	sv.add_child(host)
+
+	engine.set_scan_root(host)
+	engine.set_scanning(true)
+	controller.set_enabled(true)
+	await process_frame
+	engine.set_scanning(false)
+	await process_frame
+
+	_label(host, "VAULT-7781", Vector2(40, 40))
+	await process_frame
+	_check(engine.active_region_count() == 0, "Nothing is masked while scanning is off")
+
+	engine.set_scanning(true)
+	await process_frame
+	engine.refresh()
+	await process_frame
+	await process_frame
+	_check(engine.active_region_count() == 1, "A node added while scanning was off is indexed on re-enable")
 
 	sv.free()
 

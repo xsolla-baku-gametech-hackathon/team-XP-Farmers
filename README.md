@@ -11,8 +11,10 @@ for the Xsolla Baku GameTech Hackathon.
 3. Press **F5**. Move using WASD or arrow keys and collect green shards.
 4. Click the Streamer Mode button or press Escape to change the shared state.
 
-The project uses the Compatibility renderer and no external packages or plugins.
-No Twitch account is needed for the foundation demo.
+The project uses the Compatibility renderer and no external packages. The
+`streamer_mode` addon ships a `plugin.cfg`; enabling it is optional and only
+adds an editor menu item for tagging private nodes. No Twitch account is needed
+for the foundation demo.
 
 ## Current milestone
 
@@ -21,10 +23,12 @@ No Twitch account is needed for the foundation demo.
 - Explicit integration points for audio, privacy and Twitch chat.
 - Automated controller and demo wiring checks.
 
-On this branch the privacy mask is integrated: enabling Streamer Mode shows a
-draggable, resizable, adjustable-opacity mask over private UI. Music replacement
-and chat are still pending and their controls are labeled as such. The sample
-lobby code is fictional.
+On this branch privacy masking is integrated: enabling Streamer Mode runs
+`PrivacyEngine`, which pixelate-blurs registered private UI and text the scanner
+matches, adapting as the layout or window changes. The join code stays copyable
+while masked. A dev control panel (the "PANEL" button) tunes the blur live.
+Music replacement and chat are still pending and their controls are labeled as
+such. The sample lobby code is fictional.
 
 ## Product scope
 
