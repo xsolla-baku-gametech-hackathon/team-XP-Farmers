@@ -91,3 +91,6 @@ See [build and presentation instructions](docs/BUILD_AND_DEMO.md) and the
 ## Combined integration
 
 See [integration status](docs/FEATURE_INTEGRATION.md) for menu behavior, privacy checks and the open scanner performance target. Privacy/audio run locally. Chat is a separate application and has not been merged here.
+
+## Existing-game tests
+Two third-party Godot source projects now have tested audio integrations with a track/silence selector. See [external game setup](docs/EXTERNAL_GAMES.md). The latest chat branch restores native Godot integration and passed review; see [chat review](docs/CHAT_REVIEW.md). Chat is not merged into this branch yet.

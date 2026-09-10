@@ -149,3 +149,7 @@ A possible future model is a free core addon with paid integration assistance, s
 
 ## Integration update
 The shared settings-menu/privacy/audio milestone is implemented on integration/streamer-mode. Eleven functional suites pass. A forced 300-node scan measured about 34 ms against a 16 ms target; optimization and real-game performance acceptance remain open. A separately selectable strict performance gate retains that target.
+
+## Update: 11 September 2026
+Two third-party playable Godot projects now pass audio integration tests: Brett Chalupa's platformer starter kit and Juan Medina's shooter. Their prepared copies include F8 settings and Quiet Orbit / Neon Run / Silence selection. No private fields were invented in these single-player games; this milestone validates audio portability. The SDK now has 12 functional suites.
+The chat branch at a8a7f92 replaces Electron with native Godot chat. Godot chat and local HTTP tests plus 13 provider/server tests passed. It is suitable to integrate but has not been merged; real-account chat acceptance remains pending. Earlier standalone-chat descriptions above are historical. See docs/EXTERNAL_GAMES.md and docs/CHAT_REVIEW.md.
