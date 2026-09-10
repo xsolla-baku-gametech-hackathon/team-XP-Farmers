@@ -1,14 +1,34 @@
-﻿# Privacy prototype preserved during foundation merge
+# Privacy feature tests
 
-The original manual movable-mask project from commit fa88930 is preserved under
-`tests/privacy/standalone/`. Its scene, script, icon, and project settings are
-unchanged. Import that folder's `project.godot` as a separate Godot project to run
-it; its transparent, borderless window settings apply only to that prototype.
+The isolated movable-mask prototype that used to live in
+`tests/privacy/standalone/` (its own Forward+ project with a borderless,
+transparent, always-on-top window) has been replaced. Its behaviour now lives
+inside the root game as a reusable in-game component:
 
-The repository-root `project.godot` now runs the shared foundation game with F5.
-This resolves the conflict between two different root Godot projects while keeping
-both runnable. The mask is not yet connected to the demo's Streamer Mode toggle.
+- `addons/streamer_mode/privacy/mask_region.gd` - one draggable, resizable,
+  translucent rectangle with an opacity control.
+- `addons/streamer_mode/privacy/privacy_mask.gd` - `PrivacyMaskComponent`, a
+  `CanvasLayer` that owns the region, follows the live viewport, and shows or
+  hides it from `StreamerModeController` state.
 
-Continue reusable privacy-component work in `addons/streamer_mode/privacy/` and
-feature tests in `tests/privacy/`. Coordinate integration into `demo/` with the
-integration owner. Preserve the existing prototype until the replacement is ready.
+Removing the second `project.godot` also removes the "Detected another
+project.godot" warning during import.
+
+## Run the checks
+
+```sh
+godot --headless --path . --script res://tests/privacy/test_privacy_mask.gd
+godot --headless --path . --script res://tests/test_foundation.gd
+```
+
+`test_privacy_mask.gd` covers visibility vs. controller state, on-screen
+clamping for both dragging and resizing, the opacity control, the Escape
+panic-hide, real mouse-event routing through a viewport, and re-clamping when
+the viewport shrinks. `test_foundation.gd` additionally checks the demo wiring.
+
+## Still open on this branch
+
+The repo's completion criteria also ask to "conceal private text while
+preserving Copy". That is a separate control: a private-field widget with a
+`DisplayServer.clipboard_set()` Copy button, which the movable mask would sit
+on top of. It is not implemented here yet.

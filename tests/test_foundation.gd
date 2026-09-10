@@ -34,6 +34,14 @@ func _run() -> void:
 	_check(demo.controller.enabled, "UI toggle is wired to controller")
 	demo._reset_run()
 	_check(demo.arena.score == 0, "Demo resets gameplay")
+	_check(not demo.privacy_option.disabled, "Privacy toggle is enabled after integration")
+	_check(demo.privacy_mask != null, "Privacy mask component is wired into the demo")
+	demo.controller.set_enabled(true)
+	await process_frame
+	await process_frame
+	_check(demo.privacy_mask.is_mask_visible(), "Enabling mode shows the privacy mask")
+	demo.controller.set_feature_enabled(Controller.PRIVACY, false)
+	_check(not demo.privacy_mask.is_mask_visible(), "Opting out of privacy hides the mask")
 	demo.queue_free()
 	await process_frame
 	print("Foundation checks: %s" % ("PASS" if failures == 0 else "FAIL"))

@@ -3,6 +3,7 @@ extends Control
 const Controller = preload("res://addons/streamer_mode/core/streamer_mode_controller.gd")
 const Arena = preload("res://demo/arena.gd")
 const Services = preload("res://demo/demo_services.gd")
+const PrivacyMask = preload("res://addons/streamer_mode/privacy/privacy_mask.gd")
 const INK := Color("e6edf0")
 const MUTED := Color("8fa4b0")
 const LIME := Color("b4ee93")
@@ -12,9 +13,14 @@ var services: Node
 var arena: Control
 var mode_button: Button
 var audio_option: CheckBox
+var privacy_option: CheckBox
 var status_label: Label
 var audio_label: Label
+var privacy_label: Label
 var score_label: Label
+var lobby_card: PanelContainer
+var lobby_status: Label
+var privacy_mask: PrivacyMask
 
 
 func _ready() -> void:
@@ -27,6 +33,11 @@ func _ready() -> void:
 	services.setup(controller)
 	theme = _make_theme()
 	_build_ui()
+	privacy_mask = PrivacyMask.new()
+	privacy_mask.name = "PrivacyMask"
+	add_child(privacy_mask)
+	privacy_mask.setup(controller)
+	privacy_mask.cover_node(lobby_card)
 	controller.state_changed.connect(_refresh)
 	services.audio_status_changed.connect(func(_message: String): _refresh())
 	_refresh()
@@ -74,16 +85,17 @@ func _build_ui() -> void:
 	reset.text = "Reset run"
 	reset.pressed.connect(_reset_run)
 	game_footer.add_child(reset)
-	var lobby := _card()
-	game.add_child(lobby)
+	lobby_card = _card()
+	game.add_child(lobby_card)
 	var lobby_row := _row(20)
-	lobby.add_child(lobby_row)
+	lobby_card.add_child(lobby_row)
 	var lobby_text := _column(6)
 	lobby_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lobby_row.add_child(lobby_text)
 	lobby_text.add_child(_label("DEMO LOBBY   /   SAMPLE DATA", 11, MUTED))
 	lobby_text.add_child(_label("XP-4829", 24))
-	lobby_row.add_child(_label("Privacy + Copy\nAwaiting integration", 12, MUTED))
+	lobby_status = _label("Privacy + Copy\nVisible on stream", 12, MUTED)
+	lobby_row.add_child(lobby_status)
 	var sidebar := _column(14)
 	sidebar.custom_minimum_size.x = 350
 	content.add_child(sidebar)
@@ -116,12 +128,19 @@ func _build_ui() -> void:
 	audio_label = _label("", 12, MUTED)
 	audio_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	settings.add_child(audio_label)
-	for feature in ["Protect sensitive information", "In-game Twitch chat"]:
-		var option := CheckBox.new()
-		option.text = feature
-		option.disabled = true
-		settings.add_child(option)
-	settings.add_child(_label("Privacy and chat: awaiting integration", 12, MUTED))
+	privacy_option = CheckBox.new()
+	privacy_option.text = "Protect sensitive information"
+	privacy_option.button_pressed = controller.is_feature_selected(Controller.PRIVACY)
+	privacy_option.toggled.connect(func(selected: bool): controller.set_feature_enabled(Controller.PRIVACY, selected))
+	settings.add_child(privacy_option)
+	privacy_label = _label("", 12, MUTED)
+	privacy_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	settings.add_child(privacy_label)
+	var chat_option := CheckBox.new()
+	chat_option.text = "In-game Twitch chat"
+	chat_option.disabled = true
+	settings.add_child(chat_option)
+	settings.add_child(_label("Chat: awaiting integration", 12, MUTED))
 	var chat_card := _card()
 	chat_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	sidebar.add_child(chat_card)
@@ -136,6 +155,8 @@ func _build_ui() -> void:
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
+	# The privacy mask consumes Escape first while it is on screen (its own
+	# panic-hide). This global toggle only runs when no mask is showing.
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		controller.set_enabled(not controller.enabled)
 		get_viewport().set_input_as_handled()
@@ -147,6 +168,11 @@ func _refresh() -> void:
 	status_label.text = "Mode enabled • integrated features active" if controller.enabled else "Mode off • normal game settings"
 	audio_label.text = services.get_audio_status()
 	audio_option.set_pressed_no_signal(controller.is_feature_selected(Controller.AUDIO))
+	privacy_option.set_pressed_no_signal(controller.is_feature_selected(Controller.PRIVACY))
+	var privacy_active := controller.is_feature_active(Controller.PRIVACY)
+	privacy_label.text = "Masking private UI • drag, resize, fade" if privacy_active else "Private UI shown normally"
+	if is_instance_valid(lobby_status):
+		lobby_status.text = "Privacy + Copy\nMasked on stream" if privacy_active else "Privacy + Copy\nVisible on stream"
 
 
 func _reset_run() -> void:

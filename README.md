@@ -21,8 +21,10 @@ No Twitch account is needed for the foundation demo.
 - Explicit integration points for audio, privacy and Twitch chat.
 - Automated controller and demo wiring checks.
 
-Privacy, music replacement and chat are not implemented on the foundation branch.
-Their controls are labeled as pending; the sample lobby code is fictional.
+On this branch the privacy mask is integrated: enabling Streamer Mode shows a
+draggable, resizable, adjustable-opacity mask over private UI. Music replacement
+and chat are still pending and their controls are labeled as such. The sample
+lobby code is fictional.
 
 ## Product scope
 
