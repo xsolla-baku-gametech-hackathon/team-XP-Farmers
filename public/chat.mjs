@@ -27,7 +27,7 @@ export function renderChat(panel, stage, messages, settings) {
       row.append(author, text); return row;
     }));
   }
-  // Keep the newest message visible when long messages fill a short OBS source.
+  // Keep the newest message visible when long messages fill a small overlay.
   panel.scrollTop = panel.scrollHeight;
 }
 export async function request(path, options = {}) {

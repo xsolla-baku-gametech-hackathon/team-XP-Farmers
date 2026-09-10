@@ -34,6 +34,11 @@ function paint() {
   for (const id of ['opacity', 'font-size', 'position', 'mode']) $(id).disabled = busy;
   $('open-overlay').setAttribute('aria-disabled', String(!url));
   if (url) $('open-overlay').href = url; else $('open-overlay').removeAttribute('href');
+  $('show-desktop').setAttribute('aria-disabled', String(!url));
+  if (url) {
+    const address = new URL(url);
+    $('show-desktop').href = `xp-farmers-chat://overlay?${new URLSearchParams({ origin: address.origin })}${address.hash}`;
+  } else $('show-desktop').removeAttribute('href');
   $('link-tools').hidden = !url;
 }
 async function refresh() {
@@ -88,14 +93,14 @@ $('font-size').addEventListener('change', e => change({ fontSize: Number(e.targe
 $('position').addEventListener('change', e => change({ position: e.target.value }));
 $('mode').addEventListener('click', () => change({ enabled: !settings.enabled }));
 $('copy').addEventListener('click', async () => {
-  try { await navigator.clipboard.writeText($('overlay-url').value); $('copy-status').textContent = 'Overlay link copied. Paste it into OBS → Sources → Browser.'; }
+  try { await navigator.clipboard.writeText($('overlay-url').value); $('copy-status').textContent = 'Overlay link copied. Paste it into XP Farmers Chat to show chat on your screen.'; }
   catch { $('overlay-url').focus(); $('overlay-url').select(); $('copy-status').textContent = 'Select and copy the link above with Ctrl+C or Command+C.'; }
 });
 $('rotate').addEventListener('click', async () => {
   busy = true; generation++; error(); paint();
   try {
     session = await request('/api/overlay/rotate', { method: 'POST' });
-    $('copy-status').textContent = 'New link created. Replace the old Browser Source URL in OBS.';
+    $('copy-status').textContent = 'New link created. Click Show on screen, or paste the new link into the desktop app.';
   } catch (failure) { error(failure.message); }
   finally { busy = false; paint(); }
 });

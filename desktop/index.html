@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>XP Farmers Chat</title><link rel="stylesheet" href="style.css"><script src="renderer.mjs" type="module"></script>
+</head><body><main>
+  <p class="brand"><b>XP</b> Farmers <span>Desktop chat</span></p>
+  <h1>Your chat.<br>Above your game.</h1>
+  <p class="intro">Kick, Twitch and YouTube. A transparent chat window that stays above your other apps.</p>
+  <section aria-label="Connect your channel"><h2>1. Connect your channel</h2>
+    <label for="studio">Chat Studio address</label>
+    <div class="row"><input id="studio" type="url" placeholder="https://your-chat-studio.com" autocomplete="off" spellcheck="false"><button id="open-studio">Open studio</button></div>
+    <p class="hint">Sign in through your browser. In Chat Studio, click “Show on screen” or copy your overlay link below.</p>
+  </section>
+  <section aria-label="Show chat on screen"><h2>2. Show chat on screen</h2>
+    <label for="link">Private overlay link</label><input id="link" type="password" placeholder="Paste the complete link from Chat Studio" autocomplete="off" spellcheck="false">
+    <label for="display">Display</label><select id="display"></select>
+    <div class="actions"><button id="start" class="primary">Start overlay</button><button id="stop" disabled>Stop overlay</button></div>
+    <p id="status" role="status"></p><p id="error" class="error" role="alert" hidden></p>
+  </section>
+  <p class="hint">Adjust opacity, text size and corner in Chat Studio. Clicks pass through the chat to your game. Use a borderless/windowed game for best compatibility.</p>
+</main></body></html>

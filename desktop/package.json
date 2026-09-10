@@ -1,0 +1,30 @@
+{
+  "name": "xp-farmers-desktop",
+  "productName": "XP Farmers Chat",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Transparent desktop chat for Kick, Twitch and YouTube",
+  "author": "XP Farmers",
+  "type": "module",
+  "main": "main.mjs",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir --publish never",
+    "dist": "electron-builder --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.3.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.xpfarmers.chat",
+    "asar": true,
+    "directories": { "output": "dist" },
+    "files": ["*.mjs", "*.cjs", "*.html", "*.css", "package.json"],
+    "protocols": [{ "name": "XP Farmers Chat", "schemes": ["xp-farmers-chat"] }],
+    "mac": { "target": ["zip"], "category": "public.app-category.entertainment" },
+    "win": { "target": ["nsis"] },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "perMachine": false },
+    "linux": { "target": ["AppImage"], "category": "Utility" }
+  }
+}

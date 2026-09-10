@@ -1,13 +1,13 @@
 # XP Farmers — Chat Studio
 
 Standalone **Kick + Twitch + YouTube live chat overlay** for streamers. Open Chat Studio,
-connect your own channel, enable **Streamer Mode**, and add your private overlay
-link to OBS. No Godot, game integration, extension or desktop build is required.
+connect your own channel, enable **Streamer Mode**, and show chat directly above
+your games with the **XP Farmers Chat desktop app**. OBS and Godot are not required.
 
 This `twitch-chat` branch replaces the previous Godot addon. It has **not been
 merged** into `main` or the other feature branches.
 
-## Run locally
+## Run the studio locally
 
 Install Node.js 22 or newer, then run from the repository root:
 
@@ -17,7 +17,9 @@ node server/index.mjs
 
 Open **http://localhost:8787**. The studio works immediately with clearly labeled
 sample messages for styling. Live connections require the service owner's provider
-configuration below. There are no npm dependencies or frontend build steps.
+configuration below. The server has no npm dependencies or frontend build steps.
+The optional browser preview stays in a browser window; use the desktop app for
+a transparent, always-on-top overlay.
 
 To load a private `.env` file:
 
@@ -30,35 +32,60 @@ node --env-file=.env server/index.mjs
 
 ## Streamer workflow
 
-1. Open the service's Chat Studio URL and choose **Kick**, **Twitch** or **YouTube**.
-2. Click **Connect** and authorize your own account on the platform's sign-in page.
-3. Set background opacity (0–100%), text size and corner position. Default opacity is **35%**.
-4. Leave **Streamer Mode** on and click **Copy link**.
-5. In OBS, add **Sources → Browser**, paste the link, and set width **1920**, height **1080**.
-6. Send a message in your platform's chat. The overlay shows the actual sender's
-   username and message. The page surrounding the chat is transparent; changing
-   background opacity does not dim usernames or text.
+1. Install **XP Farmers Chat** on Windows or macOS. Development installers are
+   available as artifacts from [Desktop app builds](https://github.com/xsolla-baku-gametech-hackathon/team-XP-Farmers/actions/workflows/desktop.yml).
+2. Open your service's Chat Studio in your normal browser. Choose **Kick**,
+   **Twitch** or **YouTube**, then authorize your own channel.
+3. Set background opacity (0–100%), text size and corner. Default opacity is **35%**.
+4. Enable **Streamer Mode** and click **Show on screen**. This opens the installed
+   desktop app with your private link. Choose a display, then click **Start overlay**.
+5. If the browser cannot open the app, click **Copy link**, paste it into the desktop
+   app's **Private overlay link** field and click **Start overlay**.
+6. Send a message in your channel's chat. The actual sender's name and message
+   appear above your other windows. The surrounding desktop stays transparent,
+   text remains opaque, and mouse clicks pass through the chat to the game.
 
-For YouTube, choose the Google/Brand Account that owns the channel and allow the
-read-only YouTube permission. Start a live broadcast with chat enabled. The studio
-automatically discovers it within about 30 seconds; before then it shows a waiting
-state. Each message includes the viewer’s YouTube display name supplied by the API.
+Adjust appearance in the browser studio. Keep the desktop app running; its controls
+can be minimized. **Stop overlay** stops the local window. **Streamer Mode off**
+hides chat and discards new messages; **Disconnect** ends the provider connection.
+Replacing the private link invalidates the old one, so use **Show on screen** again.
+Desktop overlay links stay in memory and must be supplied again after quitting the app.
 
-Each session connects **one platform/channel**. To run several overlays, use separate
-browser profiles and add each generated URL as its own OBS source. Simultaneous
-aggregation of three platforms into one chat feed is not included. If a YouTube
-channel has several active broadcasts, the first eligible broadcast returned by
+For YouTube, select the Google/Brand Account that owns the channel and allow the
+read-only YouTube permission. Start a broadcast with chat enabled; the studio finds
+it within about 30 seconds. Each message includes the viewer's API-provided display
+name. The studio returns to waiting when the broadcast ends.
+
+Each session connects **one platform/channel**. The desktop app displays one overlay
+at a time. Combining three chats into one feed is not implemented. When a YouTube
+channel has multiple live broadcasts, the first eligible broadcast returned by
 YouTube is used until it ends.
 
-The overlay keeps working when the studio tab is closed. Changing settings updates
-existing OBS sources within about a second. Streamer Mode off hides the overlay and
-clears history; messages sent while off are not replayed. Disconnect stops reception
-and invalidates the overlay. **Replace overlay link** revokes a shared link without
-disconnecting the channel; update OBS afterwards.
+The app displays chat on **your desktop**; it does not transmit video or audio.
+For viewers to see that same chat, your broadcasting platform/tool must capture
+that desktop/display, including the overlay. A capture of only the game window
+may exclude it. Use borderless/windowed games; exclusive fullscreen and individual
+game/OS restrictions can prevent other windows from appearing above a game.
 
-The overlay appears in the **OBS scene and resulting stream**. This version does
-not create an always-on-top window over a game on the streamer's desktop. Use an
-OBS preview or a second display to see it locally.
+## Run or build the desktop app
+
+With Node 22+ and npm installed:
+
+```sh
+cd desktop
+npm ci
+npm start
+```
+
+Open the studio in a browser, copy its overlay link, and paste it into the desktop
+app. URL launching through **Show on screen** is registered by packaged apps;
+development mode deliberately does not change OS protocol associations.
+
+To package for the current OS, run `npm run dist` from `desktop/`. The desktop CI
+builds Windows x64 and macOS ARM64/x64 artifacts without publishing a release or
+merging any branch. These are unsigned development builds; distribution signing
+and macOS notarization must be configured before a commercial release. See the
+[desktop deployment notes](docs/DEPLOYMENT.md#desktop-distribution).
 
 ## Service owner setup
 
@@ -114,19 +141,21 @@ node --test tests/*.test.mjs
 
 Tests cover OAuth browser binding/replay, token isolation, multiple streamers,
 malformed input/CSRF, signed Kick events, message limits, opacity/mode settings,
-link revocation, encrypted restart persistence, Twitch EventSub subscriptions,
+link revocation, encrypted restart persistence, desktop URL boundaries and sandbox
+configuration, Twitch EventSub subscriptions,
 reconnect and moderation, YouTube offline OAuth/refresh, broadcast discovery,
 cursors, polling intervals, history filtering, stream transitions and quota errors.
 Provider calls are mocked in automated tests.
 
 Before selling access, configure real provider apps and run the live acceptance
-steps in [deployment instructions](docs/DEPLOYMENT.md), including an OBS recording.
+steps in [deployment instructions](docs/DEPLOYMENT.md), including the desktop overlay and your actual broadcast capture.
 Passing mocked tests does not certify real-account delivery.
 
 ## Azərbaycanca qısa istifadə
 
-Godot lazım deyil. Paneli açın → Kick/Twitch/YouTube hesabınızı qoşun → **Streamer Mode**
-aktiv edin → **Copy link** → OBS-də **Browser Source** əlavə edib linki yapışdırın.
+OBS və Godot lazım deyil. XP Farmers Chat tətbiqini açın → brauzerdə panelə daxil
+olub Kick/Twitch/YouTube hesabınızı qoşun → **Streamer Mode** aktiv edin →
+**Show on screen** → tətbiqdə ekranı seçin və **Start overlay** basın.
 Çata yazan şəxsin username-i hər mesajda görünür. Fonun şəffaflığını **Background
 opacity** ilə dəyişin; yazıların görünməsi dəyişmir. Kod GitHub-dadır, canlı xidmət
 üçün isə HTTPS üzərindən işləyən Node server və platforma tətbiq açarları lazımdır.
