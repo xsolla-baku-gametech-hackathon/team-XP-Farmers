@@ -3,8 +3,6 @@ extends PanelContainer
 ## Connection and appearance only; the host owns the master/feature controls.
 signal close_requested
 var _chat: StreamerChat
-var _connect: Button
-var _disconnect: Button
 var _provider: OptionButton
 var _enable: Button
 var _channel: Label
@@ -32,11 +30,11 @@ func _ready() -> void:
 	for provider in ["Kick", "Twitch", "YouTube"]:
 		_provider.add_item(provider)
 	box.add_child(_provider)
-	_connect = Button.new()
-	_connect.text = "Connect channel"
-	_connect.pressed.connect(func():
+	var connect_button := Button.new()
+	connect_button.text = "Connect channel"
+	connect_button.pressed.connect(func():
 		_chat.connect_channel(["kick", "twitch", "youtube"][_provider.selected]))
-	box.add_child(_connect)
+	box.add_child(connect_button)
 	_channel = Label.new()
 	_channel.text = "No channel connected"
 	box.add_child(_channel)
@@ -45,11 +43,11 @@ func _ready() -> void:
 	_enable.disabled = true
 	_enable.pressed.connect(func(): _chat.enable_chat())
 	box.add_child(_enable)
-	_disconnect = Button.new()
-	_disconnect.text = "Disconnect channel"
-	_disconnect.pressed.connect(func():
+	var disconnect_button := Button.new()
+	disconnect_button.text = "Disconnect channel"
+	disconnect_button.pressed.connect(func():
 		if is_instance_valid(_chat): _chat.disconnect_chat())
-	box.add_child(_disconnect)
+	box.add_child(disconnect_button)
 	_status = Label.new()
 	_status.text = "No channel connected"
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -67,7 +65,8 @@ func _ready() -> void:
 		opacity_label.text = "Chat background opacity · %d%%" % roundi(value * 100))
 	box.add_child(_opacity)
 	var hint := Label.new()
-	hint.text = "Hold and drag the chat to move · Scroll to read history\nDrag the top-left or bottom-right corner to resize"
+	var move_key := "Option" if OS.has_feature("macos") else "Alt"
+	hint.text = "Scroll to read history · %s + drag to move\nDrag the bottom-right corner to resize" % move_key
 	box.add_child(hint)
 	var close_button := Button.new()
 	close_button.text = "Back to game"
@@ -84,10 +83,8 @@ func setup(chat: StreamerChat) -> void:
 		_chat.status_changed.connect(_on_status)
 		_status.text = _chat.get_status()
 		_opacity.value = _chat.overlay.background_opacity
-		refresh_controls()
 
 func open() -> void:
-	refresh_controls()
 	show()
 
 func close() -> void:
@@ -97,21 +94,6 @@ func close() -> void:
 
 func _on_status(_state: String, detail: String) -> void:
 	_status.text = detail
-	refresh_controls()
-
-func refresh_controls() -> void:
-	if not is_instance_valid(_chat) or not is_instance_valid(_connect):
-		return
-	var mode_on := _chat.is_mode_enabled()
-	var connected := _chat.connection.connected
-	_provider.disabled = not mode_on
-	_connect.disabled = not mode_on
-	_disconnect.disabled = not mode_on or not connected
-	var active := _chat.is_chat_active()
-	_enable.disabled = not mode_on or not connected or active
-	_enable.text = "Chat enabled" if active else "Enable chat"
-	_channel.text = "Channel: " + _chat.connection.channel if connected else "No channel connected"
-	if not mode_on:
-		_status.text = "Turn on Streamer Mode to connect your channel."
-	else:
-		_status.text = _chat.get_status()
+	if is_instance_valid(_chat):
+		_enable.disabled = not _chat.connection.connected
+		_channel.text = "Channel: " + _chat.connection.channel if _chat.connection.connected else "No channel connected"

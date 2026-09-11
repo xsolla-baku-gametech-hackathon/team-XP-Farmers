@@ -4,8 +4,6 @@ extends CanvasLayer
 const Client = preload("res://addons/streamer_mode/chat/chat_client.gd")
 const Overlay = preload("res://addons/streamer_mode/chat/chat_overlay.gd")
 const Connection = preload("res://addons/streamer_mode/chat/channel_connection.gd")
-@export var desktop_overlay := true
-var chat_window: Window
 @export var relay_url := "http://localhost:8788"
 var connection: StreamerChannelConnection
 const Settings = preload("res://addons/streamer_mode/chat/chat_settings.gd")
@@ -27,31 +25,7 @@ func _ready() -> void:
 	client = Client.new()
 	add_child(client)
 	overlay = Overlay.new()
-	if desktop_overlay and OS.has_feature("pc"):
-		chat_window = Window.new()
-		chat_window.title = "XP Farmers · Live chat"
-		chat_window.visible = false
-		chat_window.force_native = true
-		chat_window.borderless = true
-		chat_window.always_on_top = true
-		chat_window.unfocusable = false
-		chat_window.transparent = true
-		chat_window.transparent_bg = true
-		var ui_scale := 1.0
-		chat_window.content_scale_factor = ui_scale
-		chat_window.min_size = Vector2i(Vector2(240, 140) * ui_scale)
-		chat_window.size = Vector2i(overlay.panel_size * ui_scale)
-		# A popup/transient window would disappear when switching applications.
-		chat_window.transient = false
-		chat_window.popup_window = false
-		overlay.desktop_window = chat_window
-		add_child(chat_window)
-		chat_window.add_child(overlay)
-		chat_window.close_requested.connect(func():
-			if is_instance_valid(_controller):
-				_controller.set_feature_enabled(StreamerModeController.CHAT, false))
-	else:
-		add_child(overlay)
+	add_child(overlay)
 	overlay.bind_client(client)
 	overlay.bind_controller(_controller)
 	client.status_changed.connect(_on_status)
@@ -94,8 +68,6 @@ func _on_status(state: String, detail: String) -> void:
 func _sync() -> void:
 	if not is_instance_valid(client):
 		return
-	if is_instance_valid(settings):
-		settings.refresh_controls()
 	client.set_active(is_instance_valid(_controller) and _controller.is_inside_tree()
 		and _controller.is_feature_active(StreamerModeController.CHAT))
 
@@ -127,27 +99,16 @@ func close_settings() -> void:
 func connect_link(link: String) -> bool:
 	return client.connect_link(link)
 
-func is_mode_enabled() -> bool:
-	return is_instance_valid(_controller) and _controller.enabled
-
-func is_chat_active() -> bool:
-	return is_mode_enabled() and overlay.display_enabled and _controller.is_feature_active(StreamerModeController.CHAT)
-
 func connect_channel(provider: String) -> void:
-	if not is_mode_enabled():
-		return
-	overlay.display_enabled = false
 	client.disconnect_chat()
 	connection.begin(provider)
 
 func enable_chat() -> void:
-	if is_mode_enabled() and connection.connected:
-		overlay.display_enabled = true
+	if is_instance_valid(_controller):
 		_controller.set_feature_enabled(StreamerModeController.CHAT, true)
-		settings.refresh_controls()
+		_controller.set_enabled(true)
 
 func disconnect_chat() -> void:
-	overlay.display_enabled = false
 	client.disconnect_chat()
 	connection.disconnect_channel()
 
