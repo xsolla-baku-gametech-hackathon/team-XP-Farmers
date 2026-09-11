@@ -34,7 +34,7 @@ func _ready() -> void:
 		chat_window.force_native = true
 		chat_window.borderless = true
 		chat_window.always_on_top = true
-		chat_window.unfocusable = true
+		chat_window.unfocusable = false
 		chat_window.transparent = true
 		chat_window.transparent_bg = true
 		var ui_scale := 1.0

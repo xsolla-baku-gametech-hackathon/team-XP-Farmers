@@ -20,6 +20,9 @@ var _background: ColorRect
 var _controller: StreamerModeController
 var _client: Node
 var _label: RichTextLabel
+var _desktop_start_mouse := Vector2i.ZERO
+var _desktop_start_position := Vector2i.ZERO
+var _desktop_start_size := Vector2i.ZERO
 var _dragging := false
 var _drag_offset := Vector2.ZERO
 var _drag_handle: Label
@@ -194,10 +197,10 @@ func set_panel_size(value: Vector2) -> void:
 func _on_drag_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		_resizing = false
+		_dragging = true
 		if is_instance_valid(desktop_window):
-			DisplayServer.window_start_drag(desktop_window.get_window_id())
+			_begin_desktop_pointer()
 		else:
-			_dragging = true
 			_drag_offset = get_global_mouse_position() - global_position
 		_drag_handle.accept_event()
 
@@ -222,18 +225,48 @@ func _scroll_input(event: InputEvent) -> bool:
 
 func _on_resize_input(event: InputEvent, from_top_left := false) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_resize_from_top_left = from_top_left
 		if is_instance_valid(desktop_window):
-			var edge := DisplayServer.WINDOW_EDGE_TOP_LEFT if from_top_left else DisplayServer.WINDOW_EDGE_BOTTOM_RIGHT
-			DisplayServer.window_start_resize(edge, desktop_window.get_window_id())
+			_resizing = true
+			_dragging = false
+			_begin_desktop_pointer()
 			_resize_handle.accept_event()
 			return
-		_resize_from_top_left = from_top_left
 		_resize_position = position
 		_resizing = true
 		_dragging = false
 		_resize_start = get_global_mouse_position()
 		_resize_size = size
 		_resize_handle.accept_event()
+
+
+func _begin_desktop_pointer() -> void:
+	_desktop_start_mouse = DisplayServer.mouse_get_position()
+	_desktop_start_position = desktop_window.position
+	_desktop_start_size = desktop_window.size
+
+
+func _process(_delta: float) -> void:
+	if is_instance_valid(desktop_window) and (_dragging or _resizing):
+		_update_desktop_pointer(DisplayServer.mouse_get_position(),
+			(DisplayServer.mouse_get_button_state() & MOUSE_BUTTON_MASK_LEFT) != 0)
+
+
+func _update_desktop_pointer(pointer: Vector2i, held: bool) -> void:
+	if not held or not desktop_window.visible:
+		_dragging = false
+		_resizing = false
+		return
+	var delta := pointer - _desktop_start_mouse
+	if _dragging:
+		desktop_window.position = _desktop_start_position + delta
+	elif _resizing:
+		var requested := _desktop_start_size - delta if _resize_from_top_left else _desktop_start_size + delta
+		var limit := _screen_rect().size - Vector2i(40, 40)
+		desktop_window.size = requested.clamp(desktop_window.min_size, limit)
+		if _resize_from_top_left:
+			desktop_window.position = _desktop_start_position + _desktop_start_size - desktop_window.size
+		_clamp_position()
 
 
 func _screen_rect() -> Rect2i:
@@ -269,6 +302,10 @@ func _input(event: InputEvent) -> void:
 		_dragging = false
 		_resizing = false
 		return
+	if is_instance_valid(desktop_window) and (_dragging or _resizing):
+		if event is InputEventMouseMotion or (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT):
+			get_viewport().set_input_as_handled()
+			return
 	if _scroll_input(event):
 		return
 	if _resizing:

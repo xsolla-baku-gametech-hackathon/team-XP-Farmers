@@ -90,9 +90,10 @@ Desktop builds default to `desktop_overlay = true`, with a compact 360 × 220
 pixel panel. Channel controls are disabled until Streamer Mode is ON; connecting
 a channel does not show the panel until the user presses Enable chat. The chat lives in a separate,
 non-modal, borderless native Window (`force_native`, `always_on_top`), so it is not
-clipped to the game or dismissed when another application is focused. The window
-cannot take keyboard focus, while its scrollbar and resize handle accept mouse
-input. Window movement and resizing use native OS drag operations. Master/feature
+clipped to the game or dismissed when another application is focused. The window accepts mouse focus so body dragging, scrollbars and corner handles
+work on macOS. Showing or clicking it can focus the chat window. Movement and
+resizing track the global mouse position while held and directly update the
+Window position/size, including when the pointer leaves its bounds. Master/feature
 toggles hide this same window without destroying its message buffer. Closing the
 host application closes chat as well; the relay alone does not display it.
 

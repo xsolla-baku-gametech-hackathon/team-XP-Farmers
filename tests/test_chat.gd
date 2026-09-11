@@ -38,6 +38,27 @@ func _run() -> void:
 	check(chat.settings._connect.disabled and not chat.chat_window.visible, "Mode off locks controls and hides chat")
 	demo.controller.set_enabled(true)
 	check(chat.chat_window.visible, "Mode toggle restores explicitly enabled chat")
+	var native_press := InputEventMouseButton.new()
+	native_press.button_index = MOUSE_BUTTON_LEFT
+	native_press.pressed = true
+	chat.overlay._label.gui_input.emit(native_press)
+	var original_position: Vector2i = chat.chat_window.position
+	var pointer_start: Vector2i = chat.overlay._desktop_start_mouse
+	chat.overlay._update_desktop_pointer(pointer_start + Vector2i(-80, -40), true)
+	check(chat.chat_window.position == original_position + Vector2i(-80, -40), "Body drag changes actual desktop window position")
+	chat.overlay._update_desktop_pointer(pointer_start, false)
+	check(not chat.overlay._dragging, "Release outside window ends desktop drag")
+	chat.overlay._top_left_handle.gui_input.emit(native_press)
+	var fixed_corner: Vector2i = chat.chat_window.position + chat.chat_window.size
+	var original_size: Vector2i = chat.chat_window.size
+	pointer_start = chat.overlay._desktop_start_mouse
+	chat.overlay._update_desktop_pointer(pointer_start - Vector2i(60, 40), true)
+	check(chat.chat_window.size == original_size + Vector2i(60, 40), "Top-left drag resizes actual native window")
+	check(chat.chat_window.position + chat.chat_window.size == fixed_corner, "Top-left resize keeps opposite corner fixed")
+	chat.overlay._update_desktop_pointer(pointer_start + Vector2i(9999, 9999), true)
+	check(chat.chat_window.size == chat.chat_window.min_size, "Desktop resize stops at minimum size")
+	chat.overlay._update_desktop_pointer(pointer_start, false)
+	check(not chat.overlay._resizing, "Release ends desktop resizing")
 	chat.chat_window.content_scale_factor = 2.0
 	chat.overlay.set_panel_size(Vector2(320, 180))
 	check(chat.chat_window.size == Vector2i(640, 360), "HiDPI window uses physical pixels")
