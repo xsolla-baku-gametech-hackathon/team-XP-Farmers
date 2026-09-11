@@ -11,6 +11,14 @@ func _run() -> void:
 	root.add_child(demo)
 	await process_frame
 	var chat = demo.chat
+	var original_relay: String = chat.connection.relay_url
+	check(not chat.settings.set_relay_address("rtmps://example.com"), "Reject stream ingest address before connecting")
+	check(chat.connection.relay_url == original_relay, "Invalid input does not replace configured service")
+	check(chat.settings.set_relay_address(" https://relay.example.test/ "), "Accept and normalize public service URL")
+	chat.settings.close()
+	chat.settings.open()
+	check(chat.settings._relay_address.text == "https://relay.example.test", "Address retained when reopening settings")
+	check(chat.settings.set_relay_address(original_relay), "Restore local service address")
 	check(not chat.overlay.visible, "Master off hides chat")
 	demo.controller.set_enabled(true)
 	check(chat.overlay.visible, "Master on shows chat")

@@ -8,6 +8,7 @@ var _enable: Button
 var _channel: Label
 var _status: Label
 var _opacity: HSlider
+var _relay_address: LineEdit
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(500, 0)
@@ -26,14 +27,23 @@ func _ready() -> void:
 	var help := Label.new()
 	help.text = "Choose your platform and approve access in your browser."
 	box.add_child(help)
+	var address_label := Label.new()
+	address_label.text = "Chat service URL"
+	box.add_child(address_label)
+	_relay_address = LineEdit.new()
+	_relay_address.placeholder_text = "https://your-chat-service.example"
+	box.add_child(_relay_address)
+	var address_hint := Label.new()
+	address_hint.text = "HTTPS or localhost; not your Kick stream URL.\nKept for this game session. Sign in through your browser."
+	address_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(address_hint)
 	_provider = OptionButton.new()
 	for provider in ["Kick", "Twitch", "YouTube"]:
 		_provider.add_item(provider)
 	box.add_child(_provider)
 	var connect_button := Button.new()
 	connect_button.text = "Connect channel"
-	connect_button.pressed.connect(func():
-		_chat.connect_channel(["kick", "twitch", "youtube"][_provider.selected]))
+	connect_button.pressed.connect(_connect_selected)
 	box.add_child(connect_button)
 	_channel = Label.new()
 	_channel.text = "No channel connected"
@@ -82,6 +92,7 @@ func setup(chat: StreamerChat) -> void:
 	if is_instance_valid(_chat):
 		_chat.status_changed.connect(_on_status)
 		_status.text = _chat.get_status()
+		_relay_address.text = _chat.connection.relay_url
 		_opacity.value = _chat.overlay.background_opacity
 
 func open() -> void:
@@ -97,3 +108,20 @@ func _on_status(_state: String, detail: String) -> void:
 	if is_instance_valid(_chat):
 		_enable.disabled = not _chat.connection.connected
 		_channel.text = "Channel: " + _chat.connection.channel if _chat.connection.connected else "No channel connected"
+
+func set_relay_address(address: String) -> bool:
+	var origin := address.strip_edges().trim_suffix("/")
+	var pattern := RegEx.new()
+	pattern.compile("^(https://[A-Za-z0-9.-]+(:[0-9]+)?|http://(localhost|127\\.0\\.0\\.1)(:[0-9]+)?)$")
+	if pattern.search(origin) == null:
+		_status.text = "Enter an HTTPS chat service URL or local HTTP address, not an RTMP stream URL."
+		return false
+	if not is_instance_valid(_chat):
+		return false
+	_chat.connection.relay_url = origin
+	_relay_address.text = origin
+	return true
+
+func _connect_selected() -> void:
+	if set_relay_address(_relay_address.text):
+		_chat.connect_channel(["kick", "twitch", "youtube"][_provider.selected])

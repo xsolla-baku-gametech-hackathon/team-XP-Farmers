@@ -79,3 +79,6 @@ new messages follow automatically only when you are already at the bottom.
 Drag the bottom-right corner to resize (minimum 240 × 140, bounded by viewport),
 or call `overlay.set_panel_size(Vector2(width, height))`. Alt-drag moves the panel.
 Size and position stay in memory through mode toggles, not application restarts.
+
+## Fill connection details in the game
+Chat settings now include a Chat service URL field. Enter the relay HTTPS address (or localhost HTTP), choose Kick, and Connect channel. The address is retained for the current game session; project settings supply the initial default on restart. RTMP/RTMPS ingest addresses are rejected before changing the current service or attempting a connection. Sign in through the browser; provider secrets belong in the relay server configuration, not this field.
