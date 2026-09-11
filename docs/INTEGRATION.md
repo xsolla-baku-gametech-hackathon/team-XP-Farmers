@@ -2,6 +2,8 @@
 
 Tested with Godot 4.7.2 standard, Compatibility renderer, Windows desktop.
 
+For the current all-feature installation walkthrough, start with [Install in your own Godot game](../README.md#install-in-your-own-godot-game). The example below focuses on the managed-player audio approach; the root README also covers an existing music bus, privacy and chat.
+
 ## Installation steps
 
 1. Copy `addons/streamer_mode/` into your game's `addons/` folder. Wait for
@@ -80,8 +82,7 @@ copy examples/signal_garden/ and the addon into a separate empty project instead
 Never modify generated addon copies to fix a test; fix the source and generate a
 fresh copy.
 
-Privacy and Twitch integration remain separate milestones. Once complete, add
-them to both host projects and repeat the same checks.
+Privacy and native chat are now integrated in the main demo and the two external host examples. Signal Garden remains a focused audio/privacy portability example. Live provider delivery still requires relay configuration and account acceptance testing.
 
 ## Dismissible settings and privacy
 The optional ui/streamer_settings_menu.gd PopupPanel can host the existing panel using attach_panel(panel) and set_open(bool). Keep the controller/audio/privacy services outside the popup; hiding it does not disable them. The host owns gameplay pause and keyboard handling.

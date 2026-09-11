@@ -33,8 +33,7 @@ server integration dependency, not a separate streamer desktop application.
 composes them. Settings contain no duplicate master or feature switches.
 `demo/demo_services.gd` installs chat and forwards status; `demo/main.gd` uses
 `ui/streamer_mode_panel.tscn` for all three feature slots, matching the audio demo.
-The UI files are copied unchanged from audio commit `0fbc00f`; no audio/privacy
-implementation or branch history was merged. The shared controller is unchanged.
+The combined host integrates audio, privacy and chat through the same controller and panel.
 
 Keep StreamerChat and its controller under a persistent host root when changing
 levels. The component uses PROCESS_MODE_ALWAYS so game pause does not pause chat
@@ -42,7 +41,7 @@ or its settings. Removing/re-adding chat restores its subscriptions; removing th
 controller disables delivery and display. A scene change that destroys the host
 also destroys chat, so persistence is an explicit host responsibility.
 
-For later integration, set CHAT available in the common panel and forward
+For your host integration, set CHAT available in the common panel and forward
 `status_changed` to `set_feature_status(CHAT, detail)`. Connect your Chat settings
 button to `open_settings()`. Keep one shared controller and install audio/privacy
 through their own feature APIs. Do not create additional master switches.
