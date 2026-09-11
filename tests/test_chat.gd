@@ -44,8 +44,14 @@ func _run() -> void:
 	chat.overlay._label.gui_input.emit(native_press)
 	var original_position: Vector2i = chat.chat_window.position
 	var pointer_start: Vector2i = chat.overlay._desktop_start_mouse
+	chat.overlay._update_desktop_pointer(pointer_start + Vector2i(1, 1), true)
+	check(chat.chat_window.position == original_position, "Click jitter does not move the panel")
 	chat.overlay._update_desktop_pointer(pointer_start + Vector2i(-80, -40), true)
-	check(chat.chat_window.position == original_position + Vector2i(-80, -40), "Body drag changes actual desktop window position")
+	check(chat.chat_window.position == original_position + Vector2i(-80, -40), "Body drag moves one-to-one with cursor")
+	for tick in range(10):
+		chat.overlay._update_desktop_pointer(pointer_start + Vector2i(-80, -40), true)
+	check(chat.chat_window.position == original_position + Vector2i(-80, -40), "Stationary cursor never accumulates movement")
+	check(not chat.overlay._top_left_handle is Label and not chat.overlay._resize_handle is Label and not chat.overlay._drag_handle is Label, "Handles contain no visible text or corner glyphs")
 	chat.overlay._update_desktop_pointer(pointer_start, false)
 	check(not chat.overlay._dragging, "Release outside window ends desktop drag")
 	chat.overlay._top_left_handle.gui_input.emit(native_press)

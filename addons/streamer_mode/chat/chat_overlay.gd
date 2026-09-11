@@ -23,13 +23,15 @@ var _label: RichTextLabel
 var _desktop_start_mouse := Vector2i.ZERO
 var _desktop_start_position := Vector2i.ZERO
 var _desktop_start_size := Vector2i.ZERO
+var _desktop_pointer_moved := false
+var _desktop_drag_threshold := 4.0
 var _dragging := false
 var _drag_offset := Vector2.ZERO
-var _drag_handle: Label
-var _top_left_handle: Label
+var _drag_handle: Control
+var _top_left_handle: Control
 var _resize_from_top_left := false
 var _resize_position := Vector2.ZERO
-var _resize_handle: Label
+var _resize_handle: Control
 var _resizing := false
 var _resize_start := Vector2.ZERO
 var _resize_size := Vector2.ZERO
@@ -47,9 +49,9 @@ func _ready() -> void:
 	_label = RichTextLabel.new()
 	_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_label.offset_left = 12
-	_label.offset_top = 34
+	_label.offset_top = 10
 	_label.offset_right = -12
-	_label.offset_bottom = -24
+	_label.offset_bottom = -10
 	_label.mouse_filter = Control.MOUSE_FILTER_STOP
 	_label.bbcode_enabled = false
 	_label.scroll_active = true
@@ -69,42 +71,35 @@ func _ready() -> void:
 	bar.add_theme_stylebox_override("scroll", track)
 	for state in ["slider", "slider_highlight", "slider_pressed"]:
 		var thumb := StyleBoxFlat.new()
-		thumb.bg_color = Color("b4ee93")
+		thumb.bg_color = Color("9aa5ad")
 		thumb.set_corner_radius_all(4)
 		bar.add_theme_stylebox_override(state, thumb)
-	_drag_handle = Label.new()
-	_drag_handle.text = "Live chat · Drag to move"
+	_drag_handle = Control.new()
 	_drag_handle.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	_drag_handle.offset_left = 28
+	_drag_handle.offset_left = 20
 	_drag_handle.offset_top = 2
 	_drag_handle.offset_right = -8
-	_drag_handle.offset_bottom = 30
+	_drag_handle.offset_bottom = 10
 	_drag_handle.mouse_filter = Control.MOUSE_FILTER_STOP
 	_drag_handle.mouse_default_cursor_shape = Control.CURSOR_MOVE
-	_drag_handle.add_theme_font_size_override("font_size", 13)
-	_drag_handle.add_theme_color_override("font_color", Color("b4ee93"))
 	_drag_handle.gui_input.connect(_on_drag_input)
 	add_child(_drag_handle)
-	_top_left_handle = Label.new()
-	_top_left_handle.text = "◤"
-	_top_left_handle.size = Vector2(24, 24)
+	_top_left_handle = Control.new()
+	_top_left_handle.size = Vector2(18, 18)
 	_top_left_handle.mouse_filter = Control.MOUSE_FILTER_STOP
 	_top_left_handle.mouse_default_cursor_shape = Control.CURSOR_FDIAGSIZE
 	_top_left_handle.tooltip_text = "Drag to resize chat"
-	_top_left_handle.add_theme_color_override("font_color", Color("b4ee93"))
 	_top_left_handle.gui_input.connect(_on_resize_input.bind(true))
 	add_child(_top_left_handle)
-	_resize_handle = Label.new()
-	_resize_handle.text = "◢"
+	_resize_handle = Control.new()
 	_resize_handle.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	_resize_handle.offset_left = -24
-	_resize_handle.offset_top = -24
+	_resize_handle.offset_left = -18
+	_resize_handle.offset_top = -18
 	_resize_handle.offset_right = -2
 	_resize_handle.offset_bottom = -2
 	_resize_handle.mouse_filter = Control.MOUSE_FILTER_STOP
 	_resize_handle.mouse_default_cursor_shape = Control.CURSOR_FDIAGSIZE
 	_resize_handle.tooltip_text = "Drag to resize chat"
-	_resize_handle.add_theme_color_override("font_color", Color("b4ee93"))
 	_resize_handle.gui_input.connect(_on_resize_input)
 	add_child(_resize_handle)
 	get_viewport().size_changed.connect(_clamp_position)
@@ -242,8 +237,13 @@ func _on_resize_input(event: InputEvent, from_top_left := false) -> void:
 
 func _begin_desktop_pointer() -> void:
 	_desktop_start_mouse = DisplayServer.mouse_get_position()
+	# Read the OS position at grab time; Window's cached position can lag a native move.
 	_desktop_start_position = desktop_window.position
+	if DisplayServer.get_name() != "headless":
+		_desktop_start_position = DisplayServer.window_get_position(desktop_window.get_window_id())
 	_desktop_start_size = desktop_window.size
+	_desktop_pointer_moved = false
+	_desktop_drag_threshold = 4.0 * maxf(1.0, DisplayServer.screen_get_scale(desktop_window.current_screen))
 
 
 func _process(_delta: float) -> void:
@@ -258,8 +258,16 @@ func _update_desktop_pointer(pointer: Vector2i, held: bool) -> void:
 		_resizing = false
 		return
 	var delta := pointer - _desktop_start_mouse
+	if not _desktop_pointer_moved:
+		if Vector2(delta).length() < _desktop_drag_threshold:
+			return
+		_desktop_pointer_moved = true
 	if _dragging:
-		desktop_window.position = _desktop_start_position + delta
+		# Absolute screen coordinates, one pixel of cursor movement per window pixel.
+		# Never accumulate deltas or reapply a stationary cursor's movement.
+		var target := _desktop_start_position + delta
+		if desktop_window.position != target:
+			desktop_window.position = target
 	elif _resizing:
 		var requested := _desktop_start_size - delta if _resize_from_top_left else _desktop_start_size + delta
 		var limit := _screen_rect().size - Vector2i(40, 40)

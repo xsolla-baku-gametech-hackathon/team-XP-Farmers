@@ -108,3 +108,11 @@ Spaces, switching desktops, and exclusive fullscreen applications are not
 promised by this implementation. Native GUI validation is still needed for each
 supported OS; headless tests validate composition, visibility, history and sizing,
 not the compositor's actual stacking behavior.
+
+
+The overlay has no title text or visible corner glyphs. Its transparent 18-pixel
+corner hit areas still resize, and the message body still moves the window.
+Dragging reads the actual OS window position at pointer-down, ignores initial
+click jitter (4 logical pixels), and applies an absolute one-to-one screen delta.
+Repeated frames with a stationary pointer do not accumulate movement. Scrollbars
+use a neutral gray thumb; scrolling and history behavior are unchanged.
