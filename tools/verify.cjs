@@ -18,7 +18,7 @@ function inspectOutput(output) {
 function runChecked(executable, args, options = {}) {
   const started = Date.now();
   const result = cp.spawnSync(executable, args, {
-    cwd: options.cwd || root, encoding: 'utf8', windowsHide: true,
+    cwd: options.cwd || root, env: options.env || process.env, encoding: 'utf8', windowsHide: true,
     timeout: options.timeout || 120000, maxBuffer: 16 * 1024 * 1024,
   });
   const output = (result.stdout || '') + (result.stderr || '');
@@ -35,12 +35,20 @@ function runChecked(executable, args, options = {}) {
 function verify(godot, options = {}) {
   const directory = options.directory || path.join(root, '.artifacts', 'verify-' + Date.now());
   fs.mkdirSync(directory, { recursive: true });
-  const report = { passed: false, suites: [], pending: ['300-node scanner performance target (strict benchmark separate)', 'live Twitch integration', 'OBS recording and listening check'] };
+  const report = { passed: false, suites: [], pending: ['300-node scanner performance target (strict benchmark separate)', 'live Kick/provider authorization and delivery', 'OBS recording and listening check'] };
   const save = () => fs.writeFileSync(path.join(directory, 'verification.json'), JSON.stringify(report, null, 2) + '\n');
   function stage(name, args, marker) {
     console.log('Checking ' + name + '...');
     const log = path.join(directory, name + '.log');
     const result = runChecked(godot, [...args, '--log-file', log], { log, marker });
+    report.suites.push({ name, passed: true, elapsed_ms: result.elapsed_ms, diagnostics: result.diagnostics, log: path.basename(log) });
+    save();
+  }
+  function nodeStage(name, args, marker) {
+    console.log('Checking ' + name + '...');
+    const log = path.join(directory, name + '.log');
+    const result = runChecked(process.execPath, args, { log, marker,
+      env: { ...process.env, GODOT: godot, CHAT_TEST_LOG: path.join(directory, name + '-runtime.log') } });
     report.suites.push({ name, passed: true, elapsed_ms: result.elapsed_ms, diagnostics: result.diagnostics, log: path.basename(log) });
     save();
   }
@@ -57,6 +65,13 @@ function verify(godot, options = {}) {
       stage('privacy-' + suffix, ['--headless', '--path', root, '--script', 'res://tests/privacy/test_privacy_' + suffix + '.gd'],
         'Privacy ' + suffix.replaceAll('_', ' ') + ' checks: PASS');
     }
+    stage('native-chat', ['--headless', '--path', root, '--script', 'res://tests/test_chat.gd'], 'Godot chat checks: PASS');
+    stage('combined-chat', ['--headless', '--path', root, '--script', 'res://tests/test_combined_chat.gd'], 'Combined chat checks: PASS');
+    nodeStage('chat-http', [path.join(root, 'tests/godot_relay.mjs')], 'Godot HTTP integration: PASS');
+    nodeStage('chat-pairing', [path.join(root, 'tests/godot_pairing.mjs')], 'Godot pairing HTTP: PASS');
+    const serverTests = fs.readdirSync(path.join(root, 'tests')).filter(name => name.endsWith('.test.mjs')).map(name => path.join(root, 'tests', name));
+    if (!serverTests.length) throw new Error('Server test files missing');
+    nodeStage('providers-server', ['--test', '--test-reporter=tap', ...serverTests], '# fail 0');
     const independent = path.join(directory, 'signal-garden');
     runChecked(process.execPath, [path.join(root, 'tools', 'prepare_portability_demo.cjs'), independent], {
       log: path.join(directory, 'prepare.log'), marker: 'Verified unchanged addon files:',
@@ -65,7 +80,7 @@ function verify(godot, options = {}) {
     stage('independent-game', ['--headless', '--path', independent, '--script', 'res://check_integration.gd'], 'Independent project checks: PASS');
     report.passed = true;
     save();
-    console.log('All 12 reviewed suites passed. Report: ' + path.join(directory, 'verification.json'));
+    console.log('All 17 reviewed suites passed. Report: ' + path.join(directory, 'verification.json'));
     return { directory, report };
   } catch (error) {
     report.error = error.message;

@@ -17,7 +17,7 @@ const server = createServer(async (req, res) => {
   res.end(JSON.stringify({ state: 'connected', channel: 'Fixture channel', overlayURL: `http://127.0.0.1:${server.address().port}/overlay#${'b'.repeat(43)}` }));
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-const child = spawn(process.env.GODOT || 'godot', ['--headless', '--path', '.', '--script', 'tests/test_pairing.gd'], {
+const child = spawn(process.env.GODOT || 'godot', [...(process.env.CHAT_TEST_LOG ? ['--log-file', process.env.CHAT_TEST_LOG] : []), '--headless', '--path', '.', '--script', 'tests/test_pairing.gd'], {
   stdio: 'inherit', env: { ...process.env, CHAT_TEST_ORIGIN: `http://127.0.0.1:${server.address().port}` }
 });
 const timeout = setTimeout(() => child.kill(), 15000);

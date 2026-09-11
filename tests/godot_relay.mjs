@@ -13,7 +13,7 @@ const server = createServer((req, res) => {
     messages: requests === 1 ? [] : [{ id: 'http-1', author: 'HTTP_User', text: 'Network delivery' }] }));
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-const child = spawn(process.env.GODOT || 'godot', ['--headless', '--path', '.', '--script', 'tests/test_chat_http.gd'], {
+const child = spawn(process.env.GODOT || 'godot', [...(process.env.CHAT_TEST_LOG ? ['--log-file', process.env.CHAT_TEST_LOG] : []), '--headless', '--path', '.', '--script', 'tests/test_chat_http.gd'], {
   stdio: 'inherit', env: { ...process.env, CHAT_TEST_LINK: `http://127.0.0.1:${server.address().port}/overlay#${key}` }
 });
 const timeout = setTimeout(() => child.kill(), 15000);

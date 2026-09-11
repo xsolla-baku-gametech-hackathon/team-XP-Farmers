@@ -6,16 +6,16 @@ Import project.godot with Godot 4.7.2 standard and press F5.
 Move with WASD/arrows. Settings / Escape opens a modal menu.
 Enable Streamer Mode, select features, then Resume game. Closing settings keeps protection active.
 
-For chat, choose **Connect channel / Chat settings**, select a platform and authorize in your browser. A running configured relay is required. No messages or provider connections are simulated in normal gameplay.
+For chat, choose **Connect channel / Chat settings**, fill in the Chat service URL, select a platform and authorize in your browser. A running configured relay is required. No messages or provider connections are simulated in normal gameplay.
 
 ## Integration status
 - Audio: managed-stream replacement and a dedicated music-bus adapter; effects stay on their own routes.
 - Privacy: registered fields, pattern scanning, manual-region components and Copy support. Critical demo codes hide their source text immediately.
 - Chat: native Godot overlay using the same controller; connection/appearance settings are inside the shared demo menu.
-- External examples: two third-party Godot source projects have tested audio integrations and track/silence selection.
+- External examples: two third-party Godot source projects include audio selection, privacy scanning/manual masks and native chat settings.
 - Chat history remains updated while hidden. Disconnect clears history. Master off hides chat but does not disconnect the provider session.
 
-The chat merge is a local integration checkpoint. Targeted merge checks are separate from the full combined regression/build milestone. Real-account authorization/delivery, recording/listening acceptance, and the large-scene scanner performance target remain open.
+The feature branches are combined in this hackathon integration. One verification command covers the SDK, chat and relay fixtures. Real-account authorization/delivery, recording/listening acceptance, and the large-scene scanner performance target remain open.
 
 Privacy scanning in this demo covers the game HUD, not chat history or connection controls. Chat visibility is not a privacy scrubber: previously received messages can reappear when chat is enabled again.
 
@@ -35,7 +35,7 @@ Privacy's advanced controls remain optional addon components; the shared demo sh
 See [integration guide](docs/INTEGRATION.md), [external games](docs/EXTERNAL_GAMES.md), and [team workflow](docs/TEAM_WORKFLOW.md).
 
 ## Checks
-The existing SDK runner checks its 12 functional suites:
+The verification runner checks 17 suites/stages, including 15 server/provider test cases:
 
 ~~~sh
 node tools/verify.cjs "PATH_TO_GODOT_CONSOLE"
@@ -61,4 +61,4 @@ Both player and captured game receive the same modified UI/audio.
 Supplied tracks must have appropriate usage rights; the SDK does not guarantee prevention of copyright claims or stream sniping.
 Demo music is synthesized locally; it is not commercial music recognition or filtering.
 
-Windows build tooling is documented in [build instructions](docs/BUILD_AND_DEMO.md). Previously exported binaries predate this local chat merge until the next full build.
+Windows build tooling is documented in [build instructions](docs/BUILD_AND_DEMO.md). The combined Windows demo is built from the verified integration; the relay is deployed separately.
