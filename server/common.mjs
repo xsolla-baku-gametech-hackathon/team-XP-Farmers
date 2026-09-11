@@ -22,6 +22,6 @@ export function addMessage(session, message) {
 }
 export async function jsonRequest(fetchImpl, url, options = {}) {
   const reply = await fetchImpl(url, { ...options, signal: AbortSignal.timeout(10000) });
-  if (!reply.ok) throw new Error('Provider request failed');
+  if (!reply.ok) throw new Error(`Provider request failed (${reply.status})`);
   return reply.json();
 }

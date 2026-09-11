@@ -27,9 +27,14 @@ export function createKick(config, fetchImpl = fetch) {
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   async function tokens(values) {
-    const body = await jsonRequest(fetchImpl, `${OAUTH}/token`, { method: 'POST',
-      body: new URLSearchParams({ client_id: config.clientId, client_secret: config.clientSecret, ...values }),
-    });
+    let body;
+    try {
+      body = await jsonRequest(fetchImpl, `${OAUTH}/token`, { method: 'POST',
+        body: new URLSearchParams({ client_id: config.clientId, client_secret: config.clientSecret, ...values }),
+      });
+    } catch (error) {
+      throw new Error(`Kick token exchange failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
     if (!body.access_token || !body.refresh_token || !(Number(body.expires_in) > 0)) throw new Error('Invalid token response');
     return { access: body.access_token, refresh: body.refresh_token, expires: Date.now() + Number(body.expires_in) * 1000 };
   }
@@ -49,10 +54,19 @@ export function createKick(config, fetchImpl = fetch) {
     },
     async authorize(session, code, verifier) {
       session.tokens = await tokens({ grant_type: 'authorization_code', code, code_verifier: verifier, redirect_uri: redirect });
-      const user = (await api('/users', session.tokens.access)).data?.[0];
+      let user;
+      try {
+        user = (await api('/users', session.tokens.access)).data?.[0];
+      } catch (error) {
+        throw new Error(`Kick user lookup failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
       if (!Number.isSafeInteger(user?.user_id)) throw new Error('Invalid user');
       session.user = String(user.user_id); session.channel = literal(user.name, 100) || session.user;
-      await subscribe(session);
+      try {
+        await subscribe(session);
+      } catch (error) {
+        throw new Error(`Kick event subscription failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
     },
     start(session, hooks) { hooks.status('connected', 'Kick connected. Waiting for live chat.'); return () => {}; },
     async maintain(session) {

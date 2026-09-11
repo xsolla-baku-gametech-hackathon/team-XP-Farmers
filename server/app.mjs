@@ -190,7 +190,8 @@ export function createApp(config, dependencies = {}) {
           if (sessions.get(key) !== session) return send(res, 400, { error: 'Connection was cancelled.' });
           session.stop = providers[session.provider].start(session, hooks(session));
           persist();
-        } catch {
+        } catch (error) {
+          console.error('OAuth connection failed:', error instanceof Error ? error.message : String(error));
           session.stop?.(); session.tokens = null; session.state = 'error'; session.detail = 'Account connection failed or was cancelled. Disconnect and try again.';
         }
         res.writeHead(303, { Location: '/' }); return res.end();
