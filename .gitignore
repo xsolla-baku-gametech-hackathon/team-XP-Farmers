@@ -8,3 +8,12 @@ export_credentials.cfg
 *.log
 
 /android/
+
+# Relay runtime data and dependencies
+data/
+*.enc
+*.enc.tmp
+node_modules/
+.DS_Store
+coverage/
+*.tmp

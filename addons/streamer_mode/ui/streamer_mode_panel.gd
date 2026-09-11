@@ -8,7 +8,7 @@ const ORDER: Array[StringName] = [Controller.AUDIO, Controller.PRIVACY, Controll
 const CAPTIONS: Dictionary = {
 	Controller.AUDIO: "Stream-safe audio",
 	Controller.PRIVACY: "Protect sensitive information",
-	Controller.CHAT: "In-game Twitch chat",
+	Controller.CHAT: "In-game chat",
 }
 
 @export var accent_color: Color = Color("b4ee93")

@@ -1,0 +1,13 @@
+.git
+.env
+.env.*
+data
+node_modules
+tests
+work
+outputs
+*.log
+
+.godot
+addons
+demo

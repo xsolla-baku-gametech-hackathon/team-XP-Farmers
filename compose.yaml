@@ -1,0 +1,23 @@
+services:
+  chat:
+    build: .
+    init: true
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 8787
+      PUBLIC_URL: ${PUBLIC_URL:?Set your HTTPS PUBLIC_URL in .env}
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env}
+      DATA_FILE: /app/data/sessions.enc
+    ports:
+      - "127.0.0.1:8787:8787"
+    volumes:
+      - chat-data:/app/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+volumes:
+  chat-data:

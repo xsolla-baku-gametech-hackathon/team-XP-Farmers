@@ -1,96 +1,64 @@
-# Streamer Mode SDK
+# Streamer Mode SDK — Team XP Farmers
+Reusable Godot components for music replacement, private UI protection and native in-game chat.
 
-A reusable Godot addon that gives developers one switch for streamer features,
-with a small playable game to demonstrate integration. Built by Team XP Farmers
-for the Xsolla Baku GameTech Hackathon.
+## Run the integrated demo
+Import project.godot with Godot 4.7.2 standard and press F5.
+Move with WASD/arrows. Settings / Escape opens a modal menu.
+Enable Streamer Mode, select features, then Resume game. Closing settings keeps protection active.
 
-## Run
+For chat, choose **Connect channel / Chat settings**, select a platform and authorize in your browser. A running configured relay is required. No messages or provider connections are simulated in normal gameplay.
 
-1. Use **Godot 4.7.2 standard**, with GDScript (no .NET required).
-2. Import `project.godot` in the Godot Project Manager.
-3. Press **F5**. Move using WASD or arrow keys and collect green shards.
-4. Press Escape or Settings, enable Streamer Mode, then choose Resume game. Protection stays active after closing settings.
+## Integration status
+- Audio: managed-stream replacement and a dedicated music-bus adapter; effects stay on their own routes.
+- Privacy: registered fields, pattern scanning, manual-region components and Copy support. Critical demo codes hide their source text immediately.
+- Chat: native Godot overlay using the same controller; connection/appearance settings are inside the shared demo menu.
+- External examples: two third-party Godot source projects have tested audio integrations and track/silence selection.
+- Chat history remains updated while hidden. Disconnect clears history. Master off hides chat but does not disconnect the provider session.
 
-The project uses the Compatibility renderer and no external packages or plugins.
-No Twitch account is needed for the foundation demo.
+The chat merge is a local integration checkpoint. Targeted merge checks are separate from the full combined regression/build milestone. Real-account authorization/delivery, recording/listening acceptance, and the large-scene scanner performance target remain open.
 
-## Current milestone
+Privacy scanning in this demo covers the game HUD, not chat history or connection controls. Chat visibility is not a privacy scrubber: previously received messages can reappear when chat is enabled again.
 
-- Playable 2D collection arena and reusable addon settings panel.
-- Reusable controller with master toggle, feature preferences, and signals.
-- Working music replacement with independent collection sound effects.
-- Independent Signal Garden project using an unchanged copy of the addon.
-- Automated controller, panel lifecycle, audio and second-project integration checks.
+## Relay
+Use Node 22+ and configure the desired providers in a private .env file based on .env.example.
+For the default local demo use PORT=8788. Run npm start.
+The host can configure streamer_mode/chat/relay_url in project settings; the component defaults to http://localhost:8788.
+Provider secrets remain on the server. Public provider callbacks, especially Kick webhooks, need the setup described in [deployment](docs/DEPLOYMENT.md).
+The relay is separate from the exported game executable.
 
-Privacy is integrated on this integration branch. The lobby code is concealed while Copy keeps the real value available. Chat remains a separate teammate application and its in-game control is unavailable. The sample lobby code is fictional. Enable Streamer Mode to switch from Neon Run to Quiet Orbit. Both tracks are synthesized demo material, not third-party commercial songs.
+## Reuse
+Copy addons/streamer_mode into your Godot project and bind components to one StreamerModeController.
+Your game owns settings, scene lifetime, music routing and the selection of sensitive fields.
+Chat's StreamerChat.bind(controller) and bind_controller(controller) accept that same controller.
+Privacy's advanced controls remain optional addon components; the shared demo shows its basic feature toggle.
 
-## Product scope
-
-A game developer integrates this addon into a Godot project. They identify private
-UI, supply appropriately licensed replacement music, and configure Twitch access.
-Both the player and viewers receive the same modified interface and audio.
-This is not an automatic overlay for arbitrary installed games. It reduces
-specific exposures; it cannot guarantee freedom from copyright claims or stream
-sniping. Separate engine adapters would be needed for Unity and Unreal.
-
-## Addon integration
-
-Copy `addons/streamer_mode/` into another Godot project. Create a Node with
-`core/streamer_mode_controller.gd` attached. Pass that controller to feature
-components; connect the game's settings to `set_enabled(bool)`. No autoload or
-editor plugin is required. The addon has no dependency on `demo/`. You can also instance `ui/streamer_mode_panel.tscn` to use the provided settings UI. See [installation steps and portability evidence](docs/INTEGRATION.md).
-
-See [team workflow and public API](docs/TEAM_WORKFLOW.md) for branch ownership,
-component contracts and how to start feature work. Each feature folder includes
-its handoff notes. Use standalone feature scenes before editing the shared demo.
+See [integration guide](docs/INTEGRATION.md), [external games](docs/EXTERNAL_GAMES.md), and [team workflow](docs/TEAM_WORKFLOW.md).
 
 ## Checks
+The existing SDK runner checks its 12 functional suites:
 
-Replace `godot` with the path to your Godot console executable if needed:
+~~~sh
+node tools/verify.cjs "PATH_TO_GODOT_CONSOLE"
+~~~
 
-```sh
-godot --headless --path . --editor --import --quit
-godot --headless --path . --script res://tests/test_foundation.gd
-godot --headless --path . --script res://tests/audio/test_audio.gd
-godot --headless --path . --script res://tests/ui/test_panel.gd
-```
+Additional targeted chat/merge checks:
 
-Optional screenshots (requires a graphical session):
+~~~sh
+godot --headless --path . --script tests/test_chat.gd
+godot --headless --path . --script tests/test_combined_chat.gd
+node --test tests/*.test.mjs
+node tests/godot_relay.mjs
+node tests/godot_pairing.mjs
+~~~
 
-```sh
-godot --path . --script res://tests/capture_demo.gd
-```
+The HTTP and pairing fixtures accept GODOT as the executable environment variable.
+Provider tests use mocked traffic and do not certify live-account delivery.
+The strict scanner benchmark remains available with -- --strict-performance on tests/privacy/test_privacy_engine_churn.gd; its 16 ms target was exceeded in this environment.
 
-Screenshots go to the ignored `.artifacts/` folder. Commit source and `.uid`
-files, not `.godot/` caches, exports, account credentials or access tokens.
+## Scope
+This is source-level integration for participating Godot games, not automatic protection for arbitrary installed games.
+Both player and captured game receive the same modified UI/audio.
+Supplied tracks must have appropriate usage rights; the SDK does not guarantee prevention of copyright claims or stream sniping.
+Demo music is synthesized locally; it is not commercial music recognition or filtering.
 
-## Demo completion criteria
-
-One toggle must activate integrated features: switch managed music while keeping
-sound effects, conceal private text while preserving Copy, and show actual Twitch
-chat. Verify a real OBS recording and then integrate the addon into a second
-small project. Audio replacement is implemented. Audio and the settings panel have been validated in a separate second project. Privacy is also integrated and checked in both project hosts. Live chat, scanner performance acceptance, real-game integration and recording/listening acceptance remain upcoming milestones. See [validation notes](docs/VALIDATION.md).
-
-## Verify and build
-
-Run all reviewed suites with:
-
-```sh
-node tools/verify.cjs "<Godot console executable>"
-```
-
-Build a standalone Windows demo with matching export templates installed:
-
-```sh
-node tools/build_windows.cjs "<Godot console executable>" "<empty build directory>"
-```
-
-See [build and presentation instructions](docs/BUILD_AND_DEMO.md) and the
-[next feature integration checkpoint](docs/FEATURE_INTEGRATION.md).
-
-## Combined integration
-
-See [integration status](docs/FEATURE_INTEGRATION.md) for menu behavior, privacy checks and the open scanner performance target. Privacy/audio run locally. Chat is a separate application and has not been merged here.
-
-## Existing-game tests
-Two third-party Godot source projects now have tested audio integrations with a track/silence selector. See [external game setup](docs/EXTERNAL_GAMES.md). The latest chat branch restores native Godot integration and passed review; see [chat review](docs/CHAT_REVIEW.md). Chat is not merged into this branch yet.
+Windows build tooling is documented in [build instructions](docs/BUILD_AND_DEMO.md). Previously exported binaries predate this local chat merge until the next full build.

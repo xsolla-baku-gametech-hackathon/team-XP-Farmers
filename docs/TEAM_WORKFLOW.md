@@ -70,3 +70,7 @@ controller API remains unchanged. Completed feature components are connected by
 the host; it calls panel.set_feature_available(feature, true) and updates status
 through panel.set_feature_status(feature, message). The panel does not implement
 privacy or chat itself. See docs/INTEGRATION.md for the second-host check.
+
+## Chat merge checkpoint (11 September 2026)
+Chat 093cc65 is merged locally into the integration branch based on 20c60da. Shared demo_services now owns audio and chat; demo/main owns privacy and the common modal settings. The reusable panel API and core controller are retained. Native chat history continues updating while hidden; disconnect clears it. Game HUD scanning excludes the chat component and settings UI. Do not assume hiding chat removes its retained messages.
+Nine conflicts were resolved by preserving integrated audio/privacy/UI behavior and adding chat wiring. Relay ignore patterns and web text attributes were combined. Main remains unchanged; full combined regression/build/push is the next milestone.

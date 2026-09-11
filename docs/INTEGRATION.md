@@ -89,3 +89,6 @@ The optional ui/streamer_settings_menu.gd PopupPanel can host the existing panel
 Instantiate PrivacyEngine, call setup(controller), and register must-protect regions. PrivacyCopyField.bind(engine, id) registers its value area and now suppresses source text synchronously while active; Copy uses the stored value. The engine's active_changed(active) signal supports this synchronization. Both demos use opaque tint for these fields.
 
 The scanner remains useful for other supported text, but it has detection latency and a pending large-scene performance target. Do not rely only on pattern discovery for critical secrets.
+
+## Combined chat host
+Bind StreamerChat to the same controller as audio/privacy. Keep its service alive outside the settings menu; its settings Control can be reparented into the host modal. The host must handle close_requested and pause/resume. Our demo returns to the main feature page when the menu reopens. Chat remains independent of the game-HUD privacy scanner; retained chat history is not automatically sanitized. Configure a relay before live use.

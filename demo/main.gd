@@ -16,6 +16,7 @@ var score_label: Label
 var settings_menu: PopupPanel
 var privacy_engine: PrivacyEngine
 var copy_field: PrivacyCopyField
+var chat_button: Button
 
 
 func _ready() -> void:
@@ -35,6 +36,7 @@ func _ready() -> void:
 	_build_ui()
 	controller.state_changed.connect(_refresh)
 	services.audio_status_changed.connect(func(_message: String): _refresh())
+	services.chat_status_changed.connect(func(_message: String): _refresh())
 	_refresh()
 
 
@@ -102,17 +104,48 @@ func _build_ui() -> void:
 	settings_panel.bind(controller)
 	settings_panel.set_feature_available(Controller.AUDIO, services.has_audio())
 	settings_panel.set_feature_available(Controller.PRIVACY, true)
+	settings_panel.set_feature_available(Controller.CHAT, services.has_chat())
 	settings_panel.set_feature_status(Controller.PRIVACY, "Private game UI concealed; Copy stays available.")
 	settings_menu.attach_panel(settings_panel)
-	settings_menu.visibility_changed.connect(func(): arena.set_process(not settings_menu.visible))
+	chat_button = Button.new()
+	chat_button.text = "Connect channel / Chat settings"
+	chat_button.pressed.connect(open_chat_settings)
+	settings_menu.content.add_child(chat_button)
+	settings_menu.content.move_child(chat_button, 2)
+	services.chat.settings.reparent(settings_menu.content)
+	services.chat.settings.close_requested.connect(func(): set_menu_open(false))
+	settings_menu.visibility_changed.connect(_menu_visibility)
+	privacy_engine.exclude_subtree(services.chat)
+	privacy_engine.exclude_subtree(settings_menu)
 	privacy_engine.set_scan_root(game)
 	page.add_child(_label("WASD / ARROWS  Move     |     ESC  Settings", 11, MUTED))
 
 func set_menu_open(open: bool) -> void:
+	if open:
+		_show_main_settings()
 	settings_menu.set_open(open)
 	arena.set_process(not open)
 
 
+
+func _show_main_settings() -> void:
+	services.chat.settings.hide()
+	settings_panel.show()
+	chat_button.show()
+	settings_menu.resume_button.show()
+
+func _menu_visibility() -> void:
+	arena.set_process(not settings_menu.visible)
+	if not settings_menu.visible:
+		_show_main_settings()
+
+func open_chat_settings() -> void:
+	if not settings_menu.visible:
+		set_menu_open(true)
+	settings_panel.hide()
+	chat_button.hide()
+	settings_menu.resume_button.hide()
+	services.chat.open_settings()
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
@@ -122,6 +155,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 func _refresh() -> void:
 	settings_panel.set_feature_status(Controller.AUDIO, services.get_audio_status())
+	settings_panel.set_feature_status(Controller.CHAT, services.get_chat_status())
 
 
 func _reset_run() -> void:

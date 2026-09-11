@@ -2,6 +2,7 @@ extends Node
 ## Integration owner connects completed feature components here.
 
 signal audio_status_changed(message: String)
+signal chat_status_changed(message: String)
 
 const AudioAdapter = preload("res://addons/streamer_mode/audio/stream_safe_audio.gd")
 const NORMAL = preload("res://demo/assets/audio/neon_run.wav")
@@ -10,6 +11,7 @@ const COLLECT = preload("res://demo/assets/audio/collect.wav")
 
 var music: StreamSafeAudio
 var effects: AudioStreamPlayer
+var chat: StreamerChat
 
 
 func setup(controller: StreamerModeController) -> void:
@@ -29,6 +31,10 @@ func setup(controller: StreamerModeController) -> void:
 	effects.max_polyphony = 4
 	effects.stream = COLLECT
 	add_child(effects)
+	chat = StreamerChat.new()
+	chat.bind(controller)
+	add_child(chat)
+	chat.status_changed.connect(func(_state: String, detail: String): chat_status_changed.emit(detail))
 
 
 func get_audio_status() -> String:
@@ -53,3 +59,9 @@ func _loop(source: AudioStreamWAV) -> AudioStreamWAV:
 	stream.loop_begin = 0
 	stream.loop_end = stream.data.size() / 2
 	return stream
+
+func has_chat() -> bool:
+	return is_instance_valid(chat)
+
+func get_chat_status() -> String:
+	return chat.get_status() if is_instance_valid(chat) else "Chat initializing"
