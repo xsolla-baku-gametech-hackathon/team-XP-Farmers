@@ -26,6 +26,27 @@ func _run() -> void:
 	check(AudioServer.is_bus_mute(index), "Original game music muted")
 	check(host.audio.music.is_playing(), "Our replacement is playing")
 	host.menu.set_open(false)
+	host.open_chat_settings()
+	check(paused and host.chat.settings.visible, "Kick settings open in the host modal")
+	host.chat.settings.close()
+	check(not paused and host.controller.enabled, "Closing chat settings resumes with protection")
+	host.chat.enable_chat()
+	host.chat.client.accept_snapshot({"provider":"kick", "state":"connected", "settings":{"enabled":true}, "messages":[]})
+	host.chat.client.accept_snapshot({"provider":"kick", "state":"connected", "settings":{"enabled":true}, "messages":[{"id":"fixture", "author":"Test viewer", "text":"Integration fixture"}]})
+	check(host.chat.overlay.visible and host.chat.overlay.messages.size() == 1, "Native Kick-shaped fixture renders in host")
+	host.menu.set_open(true)
+	host.begin_private_area()
+	check(paused and host.draw.is_armed() and not host.menu.visible, "Drawing pauses gameplay outside the menu")
+	host.draw.add_region(Rect2(50, 50, 160, 70))
+	host.draw.set_armed(false)
+	check(not paused and not host.draw.show_chrome, "Drawing completion restores gameplay without edit handles")
+	await process_frame
+	await process_frame
+	check(host.privacy.active_region_count() > 0, "Drawn area is masked in the game")
+	host.controller.set_feature_enabled(&"privacy", false)
+	await process_frame
+	check(host.privacy.active_region_count() == 0 and host.audio.music.is_playing(), "Privacy opt-out leaves audio active")
+	host.controller.set_feature_enabled(&"privacy", true)
 	check(not paused and host.controller.enabled, "Closing settings resumes with protection")
 	var effect = scene.find_child("JumpSfx", true, false) if platformer else scene.find_child("ShotSound", true, false)
 	check(effect != null and effect.bus != &"StreamOriginalMusic", "Gameplay SFX stay on a separate route")
@@ -44,6 +65,8 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	check(AudioServer.is_bus_mute(index) and host.audio.music.is_playing(), "Protection survives real game scene change")
+	check(host.draw.get_region_count() == 0, "Manual regions clear on scene change")
+	check(host.chat.overlay.visible, "Chat survives scene change")
 	host.controller.set_enabled(false)
 	check(not AudioServer.is_bus_mute(index) and not host.audio.music.is_playing(), "Disabling restores original game music")
 	next.free()

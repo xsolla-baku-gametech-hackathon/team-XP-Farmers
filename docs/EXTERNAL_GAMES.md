@@ -35,7 +35,7 @@ The bus adapter is optional: existing users can continue using StreamSafeAudio t
 
 Use one adapter per dedicated source bus. The source bus must contain only original music; replacement output must not route through it. Do not let other systems mutate that dedicated bus or change adapter bus names at runtime. Route host volume controls through its parent Music bus.
 
-These single-player hosts do not provide real lobby/private fields to protect. Their privacy and chat controls are unavailable; no fake sensitive data was inserted. Privacy has separate coverage in our two original hosts.
+These single-player hosts do not provide real lobby/private fields to protect. Their privacy controls now scan supported game text and allow manually drawn regions; no fake sensitive data was inserted. Native chat is also integrated, with Kick selected by default and a configured relay required for live authorization/delivery.
 
 ## Validation
 Both external host tests passed with:
@@ -62,3 +62,14 @@ Platformer upstream credits dedicate its code and Kenney sprites to CC0 and iden
 Shooter code is MIT; its README separately credits music, art, fonts and sounds. Preserve those notices and review each asset's terms before redistributing a packaged game.
 
 We keep third-party game trees outside the SDK repository. The preparation tool copies them locally; we have not pushed modified upstream games or published game releases.
+
+## Combined external-host update
+F8 now exposes all three features. Scroll below the main feature panel for:
+- Connect Kick / Chat settings: select Kick, connect through your browser, then Enable chat.
+- Draw private area: the menu closes and gameplay pauses; drag a rectangle. Release to resume. Escape or F8 cancels drawing.
+- Edit mask positions / sizes: enable handles, close the menu, adjust regions; disable handles afterward for unobstructed input.
+- Clear drawn areas and automatic game-text scanning.
+
+Chat starts disabled until explicitly enabled. Drawing enables the shared master and privacy preference; other selected features follow the master as usual.
+Manual regions clear on game scene changes and are not persisted across restarts. Automatic scanning excludes the integration UI and chat; chat history is not automatically sanitized.
+External tests now also cover native fixture chat, modal close behavior, privacy-region creation, pause restoration, privacy opt-out and scene-change cleanup. Fixtures are test-only, not live Kick messages.
